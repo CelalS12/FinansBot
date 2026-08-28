@@ -28,8 +28,9 @@ if not TOKEN:
         "Render'da Environment sekmesinden eklemen lazım."
     )
 
-bot = telebot.TeleBot(TOKEN)
-print("V29.1 GROQ AI STRATEJİK GRAFİK RADARI: Sistem başlatılıyor...")
+# İşçi sayısını (num_threads) 2'den 20'ye çıkardık. (Aynı anda çok komut alabilmesi için)
+bot = telebot.TeleBot(TOKEN, num_threads=20)
+print("V30.1 GROQ AI HIZ AŞIRTILMIŞ MEGA TERMİNAL: Sistem başlatılıyor...")
 
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
@@ -39,14 +40,14 @@ else:
 GROQ_MODEL = "openai/gpt-oss-20b"
 
 # =========================================================================
-# 🔴 JSON VERİTABANI SİSTEMİ 🔴
+# 🔴 JSON VERİTABANI VE KİLİT SİSTEMLERİ 🔴
 # =========================================================================
-VERITABANI_DOSYASI = "cuzdan_hafizasi.json"
 veritabani_kilidi = threading.Lock() 
+grafik_kilidi = threading.Lock() # Matplotlib'in kilitlenmesini (donmasını) engeller
 
 kullanici_portfoy = {}
 
-if os.path.exists(VERITABANI_DOSYASI):
+if os.path.exists(VERITABANI_DOSYASI := "cuzdan_hafizasi.json"):
     with open(VERITABANI_DOSYASI, "r", encoding="utf-8") as f:
         try:
             kullanici_portfoy = json.load(f)
@@ -102,15 +103,15 @@ def yardim_komutu(message):
         "**Komutlar:**\n"
         "🏠 /start — Ana menüyü açar\n"
         "❓ /help — Bu yardım mesajını gösterir\n\n"
-        "**Ana menüden yapabileceklerin:**\n"
-        "📊 Kapsamlı Analiz — Tek varlık teknik, AI haber ve fiyat projeksiyonu\n"
+        "**Özellikler:**\n"
+        "💬 Serbest Mod — Herhangi bir finansal sorunu yaz, AI anında cevaplasın!\n"
+        "📊 Kapsamlı Analiz — Teknik, AI haber, fiyat projeksiyonu ve temettü bilgisi\n"
         "⚖️ Düello — İki varlığı mantıksal projeksiyonlarla karşılaştırır\n"
-        "💡 Stratejik Hisse Radarı — Defansif, Dengeli ve Agresif 5-10 hisselik teknik tarama\n"
+        "💡 Hisse Radarı — Defansif, Dengeli ve Agresif 5-10 hisselik teknik tarama\n"
         "📈 Grafik Analizi — Hareketli ortalamalar ve trend analizi\n"
-        "💼 Cüzdanım — Portföy takip ve otomatik kâr/zarar\n"
-        "⚙️ Risk Profili — Defansif / Dengeli / Agresif seçimi\n"
+        "💼 Cüzdanım — Kâr/zarar, Dolar/TL hesabı ve Stop-Loss takibi\n"
         "🌍 Küresel Radar — Dolar, altın, BTC ve S&P500 özeti\n"
-        "📄 PDF Raporu — Profesyonel gün sonu yatırım raporu\n"
+        "📄 PDF Raporu — Profesyonel kurumsal rapor oluşturur\n"
     )
     bot.send_message(message.chat.id, yardim_metni, parse_mode="Markdown", reply_markup=ana_menu_olustur())
 
@@ -130,7 +131,6 @@ def buton_tepkisi(call):
         pdf_rapor_olustur_ve_gonder(chat_id)
         return
 
-    # Stratejik Radar Menüsü
     if veri == "islem_radar_oneri":
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton("🛡️ Defansif Portföy", callback_data="oneri_risk_defansif"),
@@ -154,7 +154,8 @@ def buton_tepkisi(call):
         parcalar = veri.split("_")
         risk_tipi = parcalar[2]
         vade_tipi = parcalar[3]
-        hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi)
+        # İşlemi arka planda başlatıp donmayı engelliyoruz
+        threading.Thread(target=hisse_tarama_ve_oneri_uret, args=(chat_id, risk_tipi, vade_tipi)).start()
         return
 
     if veri in ["islem_analiz", "islem_duello", "islem_grafik", "portfoy_ekle"]:
@@ -169,7 +170,7 @@ def buton_tepkisi(call):
 
     elif veri.startswith("piyasa_"):
         if chat_id not in kullanici_durumu or 'mod' not in kullanici_durumu[chat_id]:
-            bot.send_message(chat_id, "⚠️ Sistem yeniden başlatıldığı için önceki işleminiz silindi. Lütfen ana menüden baştan başlayın.", reply_markup=ana_menu_olustur())
+            bot.send_message(chat_id, "⚠️ Sistem sıfırlandı. Ana menüden baştan başlayın.", reply_markup=ana_menu_olustur())
             return
             
         kullanici_durumu[chat_id]['piyasa'] = veri.split("_")[1]
@@ -189,54 +190,7 @@ def buton_tepkisi(call):
         return
 
     elif veri == "islem_radar":
-        bot.send_message(chat_id, "🌍 Küresel piyasalar taranıyor, Groq AI makro analiz raporu hazırlanıyor...")
-        try:
-            usd = yf.Ticker("TRY=X").history(period="1mo")
-            gold = yf.Ticker("GC=F").history(period="1mo")
-            btc = yf.Ticker("BTC-USD").history(period="1mo")
-            sp500 = yf.Ticker("^GSPC").history(period="1mo")
-            
-            if usd.empty or gold.empty or btc.empty or sp500.empty:
-                bot.send_message(chat_id, "⚠️ Yahoo Finance makro verileri anlık olarak çekemedi. Lütfen birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
-                return
-
-            usd_fiyat = usd['Close'].iloc[-1]
-            gold_fiyat = gold['Close'].iloc[-1]
-            btc_fiyat = btc['Close'].iloc[-1]
-            sp500_fiyat = sp500['Close'].iloc[-1]
-
-            makro_prompt = (
-                f"Küresel finans verileri:\n"
-                f"- Dolar/TL: {usd_fiyat:.2f}\n"
-                f"- Ons Altın: {gold_fiyat:.2f} USD\n"
-                f"- Bitcoin: {btc_fiyat:,.2f} USD\n"
-                f"- ABD S&P500: {sp500_fiyat:,.2f}\n\n"
-                f"Bu verileri kullanarak piyasanın genel yönünü ekonomik bir dille 2 cümleyle özetle."
-            )
-            
-            ai_makro_yorum = "Küresel piyasalar dengeli seyrediyor."
-            if groq_client:
-                try:
-                    res = groq_client.chat.completions.create(
-                        messages=[{"role": "system", "content": "Sen kıdemli bir Türk ekonomistsin. Sadece Türkçe yazmalısın."},
-                                  {"role": "user", "content": makro_prompt}],
-                        model=GROQ_MODEL, temperature=0.3
-                    )
-                    ai_makro_yorum = res.choices[0].message.content.strip()
-                except Exception:
-                    pass
-
-            rapor = (
-                f"🌍 **KÜRESEL PİYASA RADARI VE GROQ AI MAKRO ANALİZ** 🌍\n━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"💵 **Dolar/TL:** {usd_fiyat:.2f} ₺\n"
-                f"🪙 **Ons Altın:** {gold_fiyat:.2f} $\n"
-                f"🚀 **Bitcoin:** {btc_fiyat:,.2f} $\n"
-                f"🇺🇸 **ABD S&P500:** {sp500_fiyat:,.2f} Puan\n\n"
-                f"🧠 **AI Makro Değerlendirme:**\n*{ai_makro_yorum}*\n━━━━━━━━━━━━━━━━━━━━━━\n"
-            )
-            bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
-        except Exception as e:
-            bot.send_message(chat_id, f"❌ Makro veriler işlenirken hata oluştu: {str(e)}", reply_markup=ana_menu_olustur())
+        threading.Thread(target=kuresel_radar_islet, args=(chat_id,)).start()
         return
 
     elif veri == "islem_risk":
@@ -256,9 +210,18 @@ def buton_tepkisi(call):
     elif veri == "islem_portfoy":
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton("➕ Hisse/Kripto Ekle", callback_data="portfoy_ekle"),
-                   InlineKeyboardButton("📈 Kâr/Zarar Durumu", callback_data="portfoy_izle"))
-        markup.row(InlineKeyboardButton("🏠 Ana Menüye Dön", callback_data="ana_menu"))
+                   InlineKeyboardButton("➖ Hisse Sat/Çıkar", callback_data="portfoy_cikar"))
+        markup.row(InlineKeyboardButton("📈 Kâr/Zarar Durumu", callback_data="portfoy_izle"),
+                   InlineKeyboardButton("🏠 Ana Menü", callback_data="ana_menu"))
         bot.send_message(chat_id, "💼 Cüzdana hoş geldin. Ne yapmak istersin?", reply_markup=markup)
+        return
+
+    elif veri == "portfoy_cikar":
+        if not kullanici_portfoy[chat_id_str].get('hisseler'):
+            bot.send_message(chat_id, "💼 Cüzdanın zaten boş.", reply_markup=ana_menu_olustur())
+            return
+        msg = bot.send_message(chat_id, "Çıkarmak istediğin hissenin tam kodunu veya adını yaz:")
+        bot.register_next_step_handler(msg, p_hisse_cikar)
         return
         
     elif veri == "portfoy_izle":
@@ -267,7 +230,7 @@ def buton_tepkisi(call):
 
     if veri in ["butce_yok", "butce_var"] or veri.startswith("vade_"):
         if chat_id not in kullanici_durumu or 'mod' not in kullanici_durumu[chat_id]:
-            bot.send_message(chat_id, "⚠️ Bot yeniden başlatıldığı için işlem hafızası silindi. Lütfen ana menüden baştan başlayın.", reply_markup=ana_menu_olustur())
+            bot.send_message(chat_id, "⚠️ Bot hafızası silindi. Menüden baştan başlayın.", reply_markup=ana_menu_olustur())
             return
 
         if veri == "butce_yok":
@@ -281,6 +244,44 @@ def buton_tepkisi(call):
             kullanici_durumu[chat_id]['vade'] = veri.split("_")[1]
             final_rapor_analiz(chat_id)
 
+def kuresel_radar_islet(chat_id):
+    bot.send_message(chat_id, "🌍 Küresel piyasalar taranıyor, Groq AI makro analiz raporu hazırlanıyor...")
+    try:
+        data = yf.download(["TRY=X", "GC=F", "BTC-USD", "^GSPC"], period="1mo", threads=True, progress=False)['Close']
+        usd_fiyat = data["TRY=X"].dropna().iloc[-1]
+        gold_fiyat = data["GC=F"].dropna().iloc[-1]
+        btc_fiyat = data["BTC-USD"].dropna().iloc[-1]
+        sp500_fiyat = data["^GSPC"].dropna().iloc[-1]
+
+        makro_prompt = (
+            f"Küresel finans verileri:\n- Dolar/TL: {usd_fiyat:.2f}\n- Ons Altın: {gold_fiyat:.2f} USD\n"
+            f"- Bitcoin: {btc_fiyat:,.2f} USD\n- ABD S&P500: {sp500_fiyat:,.2f}\n\n"
+            f"Bu verileri kullanarak piyasanın genel yönünü ekonomik bir dille 2 cümleyle özetle."
+        )
+        
+        ai_makro_yorum = "Küresel piyasalar dengeli seyrediyor."
+        if groq_client:
+            try:
+                res = groq_client.chat.completions.create(
+                    messages=[{"role": "system", "content": "Sen kıdemli bir Türk ekonomistsin. Sadece Türkçe yazmalısın."},
+                              {"role": "user", "content": makro_prompt}],
+                    model=GROQ_MODEL, temperature=0.3
+                )
+                ai_makro_yorum = res.choices[0].message.content.strip()
+            except: pass
+
+        rapor = (
+            f"🌍 **KÜRESEL PİYASA RADARI VE GROQ AI MAKRO ANALİZ** 🌍\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💵 **Dolar/TL:** {usd_fiyat:.2f} ₺\n"
+            f"🪙 **Ons Altın:** {gold_fiyat:.2f} $\n"
+            f"🚀 **Bitcoin:** {btc_fiyat:,.2f} $\n"
+            f"🇺🇸 **ABD S&P500:** {sp500_fiyat:,.2f} Puan\n\n"
+            f"🧠 **AI Makro Değerlendirme:**\n*{ai_makro_yorum}*\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        )
+        bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
+    except Exception as e:
+        bot.send_message(chat_id, f"❌ Makro veriler işlenirken hata oluştu: {str(e)}", reply_markup=ana_menu_olustur())
+
 def akilli_kod_cozucu(metin, piyasa):
     temiz = metin.upper().strip()
     if piyasa == "tr":
@@ -289,9 +290,7 @@ def akilli_kod_cozucu(metin, piyasa):
             try:
                 if not yf.Ticker(aday).history(period="3d").empty:
                     return aday
-            except:
-                pass
-    
+            except: pass
     try:
         arama_sonuclari = yf.Search(temiz, max_results=3).quotes
         if arama_sonuclari:
@@ -300,9 +299,7 @@ def akilli_kod_cozucu(metin, piyasa):
                 if piyasa == "tr" and not en_iyi.endswith(".IS") and "." not in en_iyi:
                     return en_iyi + ".IS"
                 return en_iyi
-    except Exception as e:
-        print(f"⚠️ Akıllı kod çözme hatası: {e}")
-        
+    except: pass
     return temiz + ".IS" if piyasa == "tr" else temiz
 
 def hisse_onerisi_bul(kod):
@@ -316,18 +313,13 @@ def hisse_onerisi_bul(kod):
             if sembol and sembol != kod:
                 oneriler.append(f"{sembol}" + (f" — {isim}" if isim else ""))
         return oneriler[:3]
-    except Exception as e:
-        print(f"⚠️ Öneri araması başarısız oldu: {e}")
-        return []
+    except: return []
 
 def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
     try:
-        if not groq_client:
-            return "🗞️ *YAPAY ZEKA ANALİZİ:* Lütfen Render ortam değişkenlerine GROQ_API_KEY ekleyin."
-
+        if not groq_client: return "🗞️ *YAPAY ZEKA ANALİZİ:* API anahtarı eksik."
         haberler = ticker_obj.news
-        if not haberler: 
-            return "🗞️ *YAPAY ZEKA ANALİZİ:* Şirketle ilgili güncel bir haber akışı bulunamadı."
+        if not haberler: return "🗞️ *YAPAY ZEKA ANALİZİ:* Şirketle ilgili güncel haber bulunamadı."
         
         haber_basliklari = ""
         for h in haberler[:5]: 
@@ -337,41 +329,30 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
                     baslik = h['content'].get('title', '')
                 if not baslik:
                     baslik = h.get('title', '')
-            if baslik:
-                haber_basliklari += f"- {baslik}\n"
+            if baslik: haber_basliklari += f"- {baslik}\n"
             
-        if not haber_basliklari:
-            return "🗞️ *YAPAY ZEKA ANALİZİ:* Haber başlıkları alınamadı."
+        if not haber_basliklari: return "🗞️ *YAPAY ZEKA ANALİZİ:* Haber başlıkları alınamadı."
 
-        prompt = (
-            f"Şirket/Varlık: {hisse_kodu}\n"
-            f"Haberler:\n{haber_basliklari}\n\n"
-            f"Bu haberlerin hisse üzerindeki etkisini profesyonel ve net bir dille 2 cümleyle özetle."
-        )
+        prompt = (f"Şirket/Varlık: {hisse_kodu}\nHaberler:\n{haber_basliklari}\n\n"
+                  f"Bu haberlerin hisse üzerindeki etkisini profesyonel ve net bir dille 2 cümleyle özetle.")
         
         chat_completion = groq_client.chat.completions.create(
             messages=[
-                {
-                    "role": "system", 
-                    "content": "Sen kıdemli bir Türk finans analistisin. Gelen haberler hangi dilde olursa olsun, cevabını KESİNLİKTE ve SADECE akıcı bir Türkçe ile yazmalısın. Asla İngilizce kelime veya cümle kullanma."
-                },
+                {"role": "system", "content": "Sen kıdemli bir Türk finans analistisin. Gelen haberler İngilizce olsa dahi KESİNLİKLE sadece Türkçe özetle."},
                 {"role": "user", "content": prompt}
             ],
-            model=GROQ_MODEL,
-            temperature=0.3,
+            model=GROQ_MODEL, temperature=0.3,
         )
-        
         ai_cevap = chat_completion.choices[0].message.content
         return f"🧠 **GROQ AI HABER ÖZETİ VE YORUMU** 🧠\n\n*{ai_cevap.strip()}*\n\n*İncelenen Son Başlıklar:*\n{haber_basliklari}"
-        
     except Exception as e:
-        return f"🗞️ *YAPAY ZEKA ANALİZİ:* Yapay zeka modülü şu an cevap veremiyor. (Detay: {str(e)})"
+        return f"🗞️ *YAPAY ZEKA ANALİZİ:* Yapay zeka modülü cevap veremiyor. ({str(e)})"
 
 # =========================================================================
-# 🔴 GELİŞMİŞ HİSSE TARAMA, GRAFİK ÇİZİMİ VE STRATEJİK ÖNERİ MOTORU 🔴
+# 🔴 HIZ AŞIRTILMIŞ HİSSE RADARI VE TOPLU TARAMA MOTORU 🔴
 # =========================================================================
 def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
-    bot.send_message(chat_id, f"🔍 **{risk_tipi.upper()}** profil ve **{vade_tipi.upper()}** vade için piyasalar taranıyor, grafikler analiz edilip puanlanıyor...")
+    bot.send_message(chat_id, f"🔍 **{risk_tipi.upper()}** profil ve **{vade_tipi.upper()}** vade için piyasalar taranıyor...")
     
     aday_havuzu = [
         "THYAO.IS", "BIMAS.IS", "TUPRS.IS", "FROTO.IS", "KCHOL.IS",
@@ -381,22 +362,30 @@ def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
     ]
     
     sonuclar = []
-    gecmis_veriler = {} # Grafikleri çizmek için dataframeleri hafızada tutuyoruz
+    gecmis_veriler = {}
     
+    try:
+        # IŞIK HIZINDA TOPLU İNDİRME! (Saniyeler süren işlemi 1 saniyeye indirir)
+        veri_bulk = yf.download(aday_havuzu, period="6mo", threads=True, progress=False)
+        df_close = veri_bulk['Close'] if 'Close' in veri_bulk else veri_bulk
+    except Exception as e:
+        bot.send_message(chat_id, "⚠️ API bağlantısında hata oluştu, veriler çekilemedi.", reply_markup=ana_menu_olustur())
+        return
+        
     for sembol in aday_havuzu:
         try:
-            df = yf.Ticker(sembol).history(period="6mo")
-            if df.empty or len(df) < 20:
-                continue
+            if sembol not in df_close.columns: continue
+            s_close = df_close[sembol].dropna()
+            if len(s_close) < 20: continue
                 
-            fiyat = df['Close'].iloc[-1]
-            sma20 = df['Close'].rolling(20).mean().iloc[-1]
-            sma50 = df['Close'].rolling(50).mean().iloc[-1]
+            fiyat = s_close.iloc[-1]
+            sma20 = s_close.rolling(20).mean().iloc[-1]
+            sma50 = s_close.rolling(50).mean().iloc[-1]
             
-            rs = df['Close'].diff().clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * df['Close'].diff().clip(upper=0)).ewm(com=13, adjust=False).mean()
+            rs = s_close.diff().clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * s_close.diff().clip(upper=0)).ewm(com=13, adjust=False).mean()
             rsi = (100 - (100 / (1 + rs))).iloc[-1]
             
-            aylik_carpan = (fiyat / df['Close'].iloc[0]) ** (1/6)
+            aylik_carpan = (fiyat / s_close.iloc[0]) ** (1/6)
             fiyat_projeksiyon = fiyat * (aylik_carpan ** 12)
             
             puan = 50
@@ -415,46 +404,43 @@ def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
 
             trend = "Yukarı 🟢" if fiyat > sma20 else "Dirençte 🟡"
             sonuclar.append({
-                'sembol': sembol,
-                'fiyat': fiyat,
-                'rsi': rsi,
-                'sma20': sma20,
-                'sma50': sma50,
-                'trend': trend,
-                'puan': puan,
-                'projeksiyon': fiyat_projeksiyon
+                'sembol': sembol, 'fiyat': fiyat, 'rsi': rsi,
+                'sma20': sma20, 'sma50': sma50, 'trend': trend,
+                'puan': puan, 'projeksiyon': fiyat_projeksiyon
             })
-            gecmis_veriler[sembol] = df
-        except Exception:
-            continue
+            gecmis_veriler[sembol] = s_close
+        except: continue
             
     sonuclar.sort(key=lambda x: x['puan'], reverse=True)
     secilenler = sonuclar[:8]
     
     if not secilenler:
-        bot.send_message(chat_id, "⚠️ Piyasa verileri anlık olarak çekilemedi. Lütfen birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
+        bot.send_message(chat_id, "⚠️ Piyasada bu kriterlere uygun sinyal bulunamadı.", reply_markup=ana_menu_olustur())
         return
 
-    # 🔴 LİDER HİSRELERİN KARŞILAŞTIRMALI GRAFİK ÇİZİMİ
     grafik_dosya = f"radar_grafik_{chat_id}.png"
-    try:
-        plt.figure(figsize=(10, 5))
-        for item in secilenler[:4]:  # En iyi 4 hisseyi grafikte kıyasla
-            sembol = item['sembol']
-            df_grafik = gecmis_veriler[sembol]
-            # Performansları aynı grafikte görebilmek için % değişime (normalize) çeviriyoruz
-            normalized = (df_grafik['Close'] / df_grafik['Close'].iloc[0] - 1) * 100
-            plt.plot(df_grafik.index, normalized, label=sembol, linewidth=2)
-            
-        plt.title(f"{risk_tipi.upper()} Profil - En İyi 4 Hissenin Son 6 Aylık Göreceli Performansı (%)")
-        plt.xlabel("Tarih")
-        plt.ylabel("Değişim (%)")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        plt.axhline(0, color='black', linewidth=1, linestyle='--')
-        plt.savefig(grafik_dosya, bbox_inches='tight')
-    finally:
-        plt.close()
+    
+    # 🛡️ GRAFİK KİLİDİ: Matplotlib donmalarını engeller!
+    with grafik_kilidi:
+        try:
+            plt.figure(figsize=(10, 5))
+            for item in secilenler[:4]:
+                sembol = item['sembol']
+                s_grafik = gecmis_veriler[sembol]
+                normalized = (s_grafik / s_grafik.iloc[0] - 1) * 100
+                plt.plot(s_grafik.index, normalized, label=sembol, linewidth=2)
+                
+            plt.title(f"{risk_tipi.upper()} Profil - En İyi 4 Hissenin Göreceli Performansı (%)")
+            plt.xlabel("Tarih")
+            plt.ylabel("Değişim (%)")
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plt.axhline(0, color='black', linewidth=1, linestyle='--')
+            plt.savefig(grafik_dosya, bbox_inches='tight')
+        except Exception as e:
+            pass
+        finally:
+            plt.close('all')
 
     hisse_listesi_metni = ""
     ai_detay_metni = ""
@@ -466,48 +452,40 @@ def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
         if idx <= 4:
             ai_detay_metni += f"- {item['sembol']}: Fiyat={item['fiyat']:.2f}, SMA20={item['sma20']:.2f}, SMA50={item['sma50']:.2f}, RSI={item['rsi']:.1f}\n"
             
-    # Yapay zekaya grafikte gördüğümüz spesifik rakamları vererek KESİN VE GERÇEKÇİ yorum istiyoruz
     ai_prompt = (
-        f"Kullanıcı {risk_tipi.upper()} risk profili ve {vade_tipi.upper()} vade için hisse tavsiyesi istiyor.\n"
-        f"Algoritmik grafik taraması sonucunda seçilen en iyi 4 hissenin teknik verileri şunlardır:\n"
-        f"{ai_detay_metni}\n"
-        f"Lütfen sadece bu somut teknik grafik verilerine (SMA ve RSI durumlarına) dayanarak, en gerçekçi, doğru ve analitik "
-        f"piyasa stratejisini 2 cümleyle Türkçe olarak yaz. Hayal ürünü, çelişkili veya uydurma yorum yapma."
+        f"Kullanıcı {risk_tipi.upper()} profil ve {vade_tipi.upper()} vade için hisse tavsiyesi istiyor.\n"
+        f"Algoritma sonucu ilk 4 hisse:\n{ai_detay_metni}\n"
+        f"Sadece bu somut grafik verilerine dayanarak en gerçekçi, doğru ve analitik piyasa stratejisini 2 cümleyle Türkçe olarak yaz."
     )
     
     ai_ozet = "Grafik verileri ve hareketli ortalamalar dikkate alındığında dengeli bir dağılım önerilmektedir."
     if groq_client:
         try:
             res = groq_client.chat.completions.create(
-                messages=[
-                    {"role": "system", "content": "Sen kıdemli bir teknik analiz uzmanı ve portföy yöneticisisin. Sadece somut verilere göre Türkçe yanıt vermelisin."},
-                    {"role": "user", "content": ai_prompt}
-                ],
+                messages=[{"role": "system", "content": "Sen kıdemli teknik analistsin. Sadece Türkçe yanıtla."},
+                          {"role": "user", "content": ai_prompt}],
                 model=GROQ_MODEL, temperature=0.2
             )
             ai_ozet = res.choices[0].message.content.strip()
-        except Exception:
-            pass
+        except: pass
 
     mesaj = (
         f"🎯 **STRATEJİK HİSSE VE GRAFİK RADARI** 🎯\n"
         f"📌 **Profil:** {risk_tipi.upper()} | ⏱️ **Vade:** {vade_tipi.upper()}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🧠 **AI Grafik & Strateji Notu:**\n*{ai_ozet}*\n\n"
-        f"📊 **Teknik Olarak Öne Çıkan Adaylar:**\n\n"
-        f"{hisse_listesi_metni}"
+        f"📊 **Öne Çıkan Adaylar:**\n\n{hisse_listesi_metni}"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💡 *Not: Bu liste teknik grafikler (SMA/RSI) ve algoritmik puanlama ile otomatik oluşturulmuştur.*"
     )
     
-    with open(grafik_dosya, "rb") as f:
-        bot.send_photo(chat_id, photo=f, caption=mesaj, parse_mode="Markdown", reply_markup=ana_menu_olustur())
-        
     if os.path.exists(grafik_dosya):
-        try:
-            os.remove(grafik_dosya)
-        except:
-            pass
+        with open(grafik_dosya, "rb") as f:
+            bot.send_photo(chat_id, photo=f, caption=mesaj, parse_mode="Markdown", reply_markup=ana_menu_olustur())
+        try: os.remove(grafik_dosya)
+        except: pass
+    else:
+        bot.send_message(chat_id, mesaj, parse_mode="Markdown", reply_markup=ana_menu_olustur())
+
 
 # =========================================================================
 # 🔴 TEKLİ GRAFİK & TREND ANALİZİ MODÜLÜ 🔴
@@ -534,63 +512,64 @@ def grafik_analiz_calistir(message):
         sma20_son = df['SMA20'].iloc[-1]
         sma50_son = df['SMA50'].iloc[-1]
 
-        try:
-            plt.figure(figsize=(10, 5))
-            plt.plot(df.index, df['Close'], label='Kapanis Fiyati', color='#1f77b4', linewidth=2)
-            plt.plot(df.index, df['SMA20'], label='20 Gunluk SMA (Kisa Trend)', color='#2ca02c', linestyle='--')
-            plt.plot(df.index, df['SMA50'], label='50 Gunluk SMA (Orta Trend)', color='#d62728', linestyle='--')
-            plt.title(f"{hisse_kodu} - Son 6 Aylik Teknik Trend")
-            plt.xlabel("Tarih")
-            plt.ylabel("Fiyat")
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            plt.savefig(grafik_dosya, bbox_inches='tight')
-        finally:
-            plt.close()
+        # 🛡️ GRAFİK KİLİDİ
+        with grafik_kilidi:
+            try:
+                plt.figure(figsize=(10, 5))
+                plt.plot(df.index, df['Close'], label='Kapanis Fiyati', color='#1f77b4', linewidth=2)
+                plt.plot(df.index, df['SMA20'], label='20 Gunluk SMA (Kisa Trend)', color='#2ca02c', linestyle='--')
+                plt.plot(df.index, df['SMA50'], label='50 Gunluk SMA (Orta Trend)', color='#d62728', linestyle='--')
+                plt.title(f"{hisse_kodu} - Son 6 Aylik Teknik Trend")
+                plt.xlabel("Tarih")
+                plt.ylabel("Fiyat")
+                plt.legend()
+                plt.grid(True, alpha=0.3)
+                plt.savefig(grafik_dosya, bbox_inches='tight')
+            except: pass
+            finally: plt.close('all')
 
         grafik_prompt = (
             f"Varlık: {hisse_kodu}\n"
             f"Güncel Fiyat: {guncel_fiyat:.2f}\n"
             f"20 Günlük SMA: {sma20_son:.2f}\n"
             f"50 Günlük SMA: {sma50_son:.2f}\n"
-            f"Teknik durum: Fiyat 20 günlük ortalamanın {'üzerinde' if guncel_fiyat > sma20_son else 'altında'}.\n"
-            f"Bu teknik görünüme dayanarak yatırımcıya kısa ve orta vadeli trend yönünü profesyonel bir analist gibi 3 cümleyle Türkçe olarak açıkla."
+            f"Fiyat 20 günlük ortalamanın {'üzerinde' if guncel_fiyat > sma20_son else 'altında'}.\n"
+            f"Bu görünüme dayanarak analist gibi 3 cümleyle Türkçe olarak trend yönünü açıkla."
         )
 
         ai_grafik_yorum = "Fiyat hareketli ortalamalar çevresinde denge arıyor."
         if groq_client:
             try:
                 res = groq_client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": "Sen kıdemli bir teknik analiz uzmanısın. Yalnızca Türkçe yazmalısın."},
-                        {"role": "user", "content": grafik_prompt}
-                    ],
+                    messages=[{"role": "system", "content": "Sen kıdemli teknik analistsin. Sadece Türkçe yanıtla."},
+                              {"role": "user", "content": grafik_prompt}],
                     model=GROQ_MODEL, temperature=0.3
                 )
                 ai_grafik_yorum = res.choices[0].message.content.strip()
-            except Exception:
-                pass
+            except: pass
 
         rapor = (
-            f"📈 **{hisse_kodu} GELİŞMİŞ GRAFİK & TREND ANALİZİ** 📈\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📈 **{hisse_kodu} GELİŞMİŞ GRAFİK ANALİZİ** 📈\n━━━━━━━━━━━━━━━━━━━━━━\n"
             f"💵 **Anlık Fiyat:** {guncel_fiyat:.2f}\n"
             f"🟢 **20 Günlük SMA:** {sma20_son:.2f}\n"
             f"🔴 **50 Günlük SMA:** {sma50_son:.2f}\n\n"
-            f"🧠 **AI Teknik Grafik Yorumu:**\n*{ai_grafik_yorum}*\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🧠 **AI Grafik Yorumu:**\n*{ai_grafik_yorum}*\n━━━━━━━━━━━━━━━━━━━━━━\n"
         )
-
-        with open(grafik_dosya, "rb") as f:
-            bot.send_photo(chat_id, photo=f, caption=rapor, parse_mode="Markdown", reply_markup=ana_menu_olustur())
+        
+        if os.path.exists(grafik_dosya):
+            with open(grafik_dosya, "rb") as f:
+                bot.send_photo(chat_id, photo=f, caption=rapor, parse_mode="Markdown", reply_markup=ana_menu_olustur())
+            try: os.remove(grafik_dosya)
+            except: pass
+        else:
+            bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
 
     except Exception as e:
-        bot.send_message(chat_id, f"❌ Grafik analizi yapılırken hata oluştu: {str(e)}", reply_markup=ana_menu_olustur())
-    finally:
-        if os.path.exists(grafik_dosya):
-            try:
-                os.remove(grafik_dosya)
-            except:
-                pass
+        bot.send_message(chat_id, f"❌ Hata: {str(e)}", reply_markup=ana_menu_olustur())
 
+# =========================================================================
+# 🔴 PORTFÖY YÖNETİMİ VE ANALİZ 🔴
+# =========================================================================
 def p_hisse_al(message):
     chat_id = message.chat.id
     ham_metin = message.text
@@ -600,25 +579,19 @@ def p_hisse_al(message):
     try:
         gecmis = yf.Ticker(hisse_kodu).history(period="5d")
         gecerli = not gecmis.empty
-    except Exception:
-        gecerli = False
+    except: gecerli = False
 
     if not gecerli:
         oneriler = hisse_onerisi_bul(hisse_kodu)
         if oneriler:
-            oneri_metni = "\n".join(f"• {o}" for o in oneriler)
-            msg = bot.send_message(
-                chat_id,
-                f"⚠️ '{ham_metin}' tam olarak bulunamadı. Bunlardan birini mi demek istedin?\n\n{oneri_metni}\n\n"
-                f"Doğru kodu yazar mısın?",
-            )
+            msg = bot.send_message(chat_id, f"⚠️ '{ham_metin}' bulunamadı. Şunlardan biri mi?\n\n{chr(10).join(['• '+o for o in oneriler])}\n\nDoğru kodu yaz:")
         else:
-            msg = bot.send_message(chat_id, f"⚠️ '{ham_metin}' bulunamadı. Kodu kontrol edip tekrar yazar mısın?")
+            msg = bot.send_message(chat_id, f"⚠️ '{ham_metin}' bulunamadı. Kodu tekrar yaz:")
         bot.register_next_step_handler(msg, p_hisse_al)
         return
 
     kullanici_durumu[chat_id]['p_hisse'] = hisse_kodu
-    msg = bot.send_message(chat_id, f"✅ Algılanan varlık: **{hisse_kodu}**\nMaliyetin nedir? (Örn: 245.50):", parse_mode="Markdown")
+    msg = bot.send_message(chat_id, f"✅ Varlık: **{hisse_kodu}**\nMaliyetin nedir? (Örn: 245.50):", parse_mode="Markdown")
     bot.register_next_step_handler(msg, p_maliyet_al)
 
 def p_maliyet_al(message):
@@ -627,7 +600,7 @@ def p_maliyet_al(message):
         kullanici_durumu[chat_id]['p_maliyet'] = float(message.text.replace(',', '.'))
         msg = bot.send_message(chat_id, "Kaç adet aldın?")
         bot.register_next_step_handler(msg, p_lot_al)
-    except Exception:
+    except:
         msg = bot.send_message(chat_id, "Rakam girmelisin. Maliyetin nedir?")
         bot.register_next_step_handler(msg, p_maliyet_al)
 
@@ -642,14 +615,55 @@ def p_lot_al(message):
         kullanici_portfoy[chat_id_str]['hisseler'][hisse] = {
             'maliyet': maliyet, 
             'lot': lot,
-            'son_alarm_fiyati': maliyet
+            'son_alarm_fiyati': maliyet,
+            'stop_loss': 0.0
         }
         veritabanina_kaydet()
         
-        bot.send_message(chat_id, f"✅ {hisse} kalıcı hafızaya eklendi! Sunucu kapansa bile silinmeyecek.", reply_markup=ana_menu_olustur())
-    except Exception:
+        msg = bot.send_message(chat_id, f"✅ {hisse} kalıcı hafızaya eklendi!\n\n🛡️ İsteğe bağlı: **Zarar Kes (Stop-Loss)** seviyesi belirlemek ister misin? (Rakam yaz. İstemiyorsan '0' veya 'Yok' yaz):")
+        bot.register_next_step_handler(msg, p_stop_loss_al, hisse)
+    except:
         msg = bot.send_message(chat_id, "Sayı girmelisin. Kaç adet aldın?")
         bot.register_next_step_handler(msg, p_lot_al)
+
+def p_stop_loss_al(message, hisse):
+    chat_id = message.chat.id
+    chat_id_str = str(chat_id)
+    metin = message.text.replace(',', '.')
+    
+    if metin.lower() in ["0", "yok", "hayır", "hayir", "istemiyorum"]:
+        bot.send_message(chat_id, "✅ Stop-Loss ayarlanmadı.", reply_markup=ana_menu_olustur())
+        return
+        
+    try:
+        sl = float(metin)
+        if sl > 0:
+            kullanici_portfoy[chat_id_str]['hisseler'][hisse]['stop_loss'] = sl
+            veritabanina_kaydet()
+            bot.send_message(chat_id, f"🛡️ Harika! **{hisse}** fiyatı **{sl}** seviyesinin altına inerse sana acil alarm göndereceğim.", parse_mode="Markdown", reply_markup=ana_menu_olustur())
+        else:
+            bot.send_message(chat_id, "✅ Stop-Loss ayarlanmadı.", reply_markup=ana_menu_olustur())
+    except:
+        bot.send_message(chat_id, "⚠️ Geçersiz rakam. Stop-Loss ayarlanmadı.", reply_markup=ana_menu_olustur())
+
+def p_hisse_cikar(message):
+    chat_id = message.chat.id
+    chat_id_str = str(chat_id)
+    kod = message.text.upper().strip()
+    
+    hisseler = kullanici_portfoy[chat_id_str].get('hisseler', {})
+    bulunan = None
+    for h in hisseler.keys():
+        if kod in h:
+            bulunan = h
+            break
+            
+    if bulunan:
+        del kullanici_portfoy[chat_id_str]['hisseler'][bulunan]
+        veritabanina_kaydet()
+        bot.send_message(chat_id, f"🗑️ **{bulunan}** portföyünden başarıyla silindi.", parse_mode="Markdown", reply_markup=ana_menu_olustur())
+    else:
+        bot.send_message(chat_id, f"⚠️ Cüzdanında '{kod}' ile eşleşen bir varlık bulunamadı.", reply_markup=ana_menu_olustur())
 
 def portfoy_raporu_ver(chat_id):
     chat_id_str = str(chat_id)
@@ -657,8 +671,13 @@ def portfoy_raporu_ver(chat_id):
     if not cuzdan:
         bot.send_message(chat_id, "💼 Cüzdanın boş.", reply_markup=ana_menu_olustur())
         return
-    bot.send_message(chat_id, "🔄 Veriler çekiliyor...")
-    toplam_yatirim, toplam_guncel_deger = 0, 0
+        
+    bot.send_message(chat_id, "🔄 Veriler ve kurlar (Dolar/TL) çekiliyor...")
+    
+    try: usd_kur = yf.Ticker("TRY=X").fast_info['last_price']
+    except: usd_kur = 34.0
+    
+    toplam_yatirim_tl, toplam_guncel_tl = 0, 0
     rapor = "💼 KİŞİSEL PORTFÖYÜN\n━━━━━━━━━━━━━━━━━━━━━━\n"
     
     for hisse, veriler in cuzdan.items():
@@ -668,24 +687,115 @@ def portfoy_raporu_ver(chat_id):
             gun_para = guncel_fiyat * veriler['lot']
             kar_zarar = gun_para - yat_para
             yuzde = ((guncel_fiyat - veriler['maliyet']) / veriler['maliyet']) * 100
-            toplam_yatirim += yat_para
-            toplam_guncel_deger += gun_para
-            ikon = "🟩" if kar_zarar > 0 else "🟥"
-            rapor += (f"🔹 **{hisse}** ({veriler['lot']:.2f} Adet)\n• Maliyet: {veriler['maliyet']:.2f} | Güncel: {guncel_fiyat:.2f}\n"
-                      f"• Durum: {ikon} {kar_zarar:+.2f} (%{yuzde:+.1f})\n\n")
-        except Exception as e:
-            print(f"⚠️ {hisse} için veri çekilemedi: {e}")
             
-    fark = toplam_guncel_deger - toplam_yatirim
-    genel_yuzde = (fark / toplam_yatirim) * 100 if toplam_yatirim > 0 else 0
-    rapor += (f"━━━━━━━━━━━━━━━━━━━━━━\n💵 Toplam Maliyet: {toplam_yatirim:.2f}\n💰 Güncel Bakiye: {toplam_guncel_deger:.2f}\n"
-              f"🎯 GENEL DURUM: {'🟩' if fark > 0 else '🟥'} {fark:+.2f} (%{genel_yuzde:+.2f})\n")
+            is_usd = not hisse.endswith(".IS")
+            carpan = usd_kur if is_usd else 1.0
+            
+            toplam_yatirim_tl += (yat_para * carpan)
+            toplam_guncel_tl += (gun_para * carpan)
+            
+            ikon = "🟩" if kar_zarar > 0 else "🟥"
+            para_birimi = "$" if is_usd else "₺"
+            sl_metni = f" | Stop: {veriler.get('stop_loss', 0)}" if veriler.get('stop_loss', 0) > 0 else ""
+            
+            rapor += (f"🔹 **{hisse}** ({veriler['lot']:.2f} Adet)\n"
+                      f"• Mal: {veriler['maliyet']:.2f}{para_birimi} | Gün: {guncel_fiyat:.2f}{para_birimi}{sl_metni}\n"
+                      f"• Durum: {ikon} {kar_zarar:+.2f}{para_birimi} (%{yuzde:+.1f})\n\n")
+        except: pass
+            
+    fark_tl = toplam_guncel_tl - toplam_yatirim_tl
+    genel_yuzde = (fark_tl / toplam_yatirim_tl) * 100 if toplam_yatirim_tl > 0 else 0
+    
+    rapor += (f"━━━━━━━━━━━━━━━━━━━━━━\n💵 Toplam Maliyet: {toplam_yatirim_tl:,.2f} ₺\n"
+              f"💰 Güncel Bakiye: {toplam_guncel_tl:,.2f} ₺\n"
+              f"🎯 NET DURUM (TL): {'🟩' if fark_tl > 0 else '🟥'} {fark_tl:+,.2f} ₺ (%{genel_yuzde:+.2f})\n")
     bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
 
 def hisse_kaydet_analiz(message):
     hisse = akilli_kod_cozucu(message.text, kullanici_durumu[message.chat.id]['piyasa'])
     kullanici_durumu[message.chat.id]['hisse1'] = hisse
     butce_sorusu_sun(message.chat.id)
+
+def final_rapor_analiz(chat_id):
+    bot.send_message(chat_id, "🏛️ Analizler hesaplanıyor, haberler AI ile yorumlanıyor...")
+    try:
+        tercih = kullanici_durumu[chat_id]
+        hisse_kodu = tercih['hisse1']
+        ticker = yf.Ticker(hisse_kodu)
+        gecmis_veri = ticker.history(period="1y")
+
+        if gecmis_veri.empty or len(gecmis_veri) < 5:
+            bot.send_message(chat_id, "⚠️ API veriyi anlık çekemedi.", reply_markup=ana_menu_olustur())
+            return
+
+        info = ticker.info
+        guncel_fiyat = gecmis_veri['Close'].iloc[-1]
+        fk_orani = info.get('trailingPE', 0) or 0
+        temettu_verimi = info.get('dividendYield', 0)
+        temettu_metni = f"%{temettu_verimi*100:.1f}" if temettu_verimi else "Yok"
+        
+        sma_50 = gecmis_veri['Close'].rolling(window=50).mean()
+        sma_200 = gecmis_veri['Close'].rolling(window=200).mean()
+        sma_50_son = sma_50.iloc[-1] if len(sma_50.dropna()) > 0 else 0
+        sma_200_son = sma_200.iloc[-1] if len(sma_200.dropna()) > 0 else 0
+        
+        rs = gecmis_veri['Close'].diff().clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * gecmis_veri['Close'].diff().clip(upper=0)).ewm(com=13, adjust=False).mean()
+        rsi = (100 - (100 / (1 + rs))).iloc[-1]
+
+        aylik_carpan = (guncel_fiyat / gecmis_veri['Close'].iloc[0]) ** (1/12)
+        t1, t12 = guncel_fiyat * (aylik_carpan ** 1), guncel_fiyat * (aylik_carpan ** 12)
+
+        chat_id_str = str(chat_id)
+        
+        # 🛡️ GRAFİK KİLİDİ
+        grafik_dosya = f"analiz_grafik_{chat_id}.png"
+        with grafik_kilidi:
+            try:
+                plt.figure(figsize=(10, 5))
+                plt.plot(gecmis_veri.index, gecmis_veri['Close'], label='Kapanis Fiyati', color='#1f77b4', linewidth=2)
+                plt.plot(gecmis_veri.index, sma_50, label='50 Gun SMA', color='#ff7f0e', linestyle='--')
+                plt.title(f"{hisse_kodu} Son 1 Yillik Performans")
+                plt.xlabel("Tarih")
+                plt.ylabel("Fiyat")
+                plt.legend()
+                plt.grid(True, alpha=0.3)
+                plt.savefig(grafik_dosya, bbox_inches='tight')
+            except: pass
+            finally: plt.close('all')
+
+        rapor = f"📑 {hisse_kodu} BİRLEŞİK DETAYLI ANALİZ\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        rapor += f"💵 GÜNCEL FİYAT: {guncel_fiyat:.2f}\n• F/K: {fk_orani:.1f} | RSI: {rsi:.1f} | Temettü: {temettu_metni}\n\n"
+        
+        if hisse_kodu in kullanici_portfoy[chat_id_str].get('hisseler', {}):
+            lot = kullanici_portfoy[chat_id_str]['hisseler'][hisse_kodu]['lot']
+            maliyet = kullanici_portfoy[chat_id_str]['hisseler'][hisse_kodu]['maliyet']
+            kar = (guncel_fiyat - maliyet) * lot
+            rapor += f"💼 **CÜZDANINDA VAR:** {lot:.2f} adet. Kâr/Zarar: {'🟩' if kar>0 else '🟥'} {kar:+.2f}\n\n"
+
+        rapor += f"{haber_ve_duygu_analizi(ticker, hisse_kodu)}\n\n"
+        rapor += f"🧠 STRATEJİ VE AÇIKLAMALAR:\n\n"
+        
+        if tercih['vade'] in ['kisa', 'ikisi']: 
+            rapor += f"⏱️ KISA VADE (RSI: {rsi:.1f}): {'Alım Fırsatı' if rsi <= 35 else ('Riskli/Şişmiş' if rsi >= 65 else 'Nötr')}\n"
+        if tercih['vade'] in ['uzun', 'ikisi']:
+            rapor += f"📅 UZUN VADE YÖN (SMA): {'Trend Yukarı' if sma_50_son > sma_200_son else 'Trend Aşağı'}\n"
+            rapor += f"📅 UZUN VADE DEĞER (F/K: {fk_orani:.1f}): {'Ucuz/İskontolu' if 0 < fk_orani <= 10 else ('Pahalı/Primli' if fk_orani > 25 else 'Adil Fiyat')}\n\n"
+            
+        rapor += f"🔮 GELECEK TAHMİNLERİ:\n• 1 Ay Sonra: {t1:.2f}\n• 12 Ay Sonra: {t12:.2f}\n\n"
+
+        if tercih['butce']:
+            b = tercih['butce']
+            rapor += f"💰 {b} İLE BÜTÇE PROJEKSİYONU:\n• {b/guncel_fiyat:.2f} adet alınabilir.\n• 1 Ay: {b*(aylik_carpan**1):.2f} | 12 Ay: {b*(aylik_carpan**12):.2f}"
+            
+        if os.path.exists(grafik_dosya):
+            with open(grafik_dosya, "rb") as f:
+                bot.send_photo(chat_id, photo=f, caption=rapor, reply_markup=ana_menu_olustur())
+            try: os.remove(grafik_dosya)
+            except: pass
+        else:
+            bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
+    except Exception as e:
+        bot.send_message(chat_id, f"❌ Hata oluştu. (Detay: {str(e)})", reply_markup=ana_menu_olustur())
 
 def hisse1_kaydet_duello(message):
     hisse = akilli_kod_cozucu(message.text, kullanici_durumu[message.chat.id]['piyasa'])
@@ -721,90 +831,6 @@ def vade_secimi_sun(chat_id):
                InlineKeyboardButton("🧠 Her İkisi de", callback_data="vade_ikisi"))
     bot.send_message(chat_id, "Vade tercihiniz?", reply_markup=markup)
 
-def final_rapor_analiz(chat_id):
-    bot.send_message(chat_id, "🏛️ Analizler hesaplanıyor, haberler AI ile yorumlanıyor ve GRAFİKLER çiziliyor...")
-    try:
-        tercih = kullanici_durumu[chat_id]
-        hisse_kodu = tercih['hisse1']
-        ticker = yf.Ticker(hisse_kodu)
-        gecmis_veri = ticker.history(period="1y")
-
-        if gecmis_veri.empty or len(gecmis_veri) < 5:
-            oneriler = hisse_onerisi_bul(hisse_kodu)
-            if oneriler:
-                oneri_metni = "\n".join(f"• {o}" for o in oneriler)
-                bot.send_message(
-                    chat_id,
-                    f"⚠️ '{hisse_kodu}' bulunamadı. Bunlardan birini mi demek istedin?\n\n{oneri_metni}\n\n"
-                    f"Doğru kodu öğrenip ana menüden tekrar dener misin?",
-                    reply_markup=ana_menu_olustur(),
-                )
-            else:
-                bot.send_message(chat_id, f"⚠️ Yahoo Finance API anlık olarak {hisse_kodu} verisini boş döndürdü. Lütfen kodu kontrol edip birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
-            return
-
-        info = ticker.info
-        guncel_fiyat = gecmis_veri['Close'].iloc[-1]
-        fk_orani = info.get('trailingPE', 0) or 0
-        
-        sma_50 = gecmis_veri['Close'].rolling(window=50).mean()
-        sma_200 = gecmis_veri['Close'].rolling(window=200).mean()
-        sma_50_son = sma_50.iloc[-1] if len(sma_50.dropna()) > 0 else 0
-        sma_200_son = sma_200.iloc[-1] if len(sma_200.dropna()) > 0 else 0
-        
-        try:
-            plt.figure(figsize=(10, 5))
-            plt.plot(gecmis_veri.index, gecmis_veri['Close'], label='Kapanis Fiyati', color='#1f77b4', linewidth=2)
-            plt.plot(gecmis_veri.index, sma_50, label='50 Gun SMA', color='#ff7f0e', linestyle='--')
-            plt.title(f"{hisse_kodu} Son 1 Yillik Performans")
-            plt.xlabel("Tarih")
-            plt.ylabel("Fiyat")
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', bbox_inches='tight')
-            buf.seek(0)
-            bot.send_photo(chat_id, photo=buf, caption=f"📈 {hisse_kodu} Teknik Analiz Grafiği")
-        finally:
-            plt.close()
-
-        rs = gecmis_veri['Close'].diff().clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * gecmis_veri['Close'].diff().clip(upper=0)).ewm(com=13, adjust=False).mean()
-        rsi = (100 - (100 / (1 + rs))).iloc[-1]
-
-        aylik_carpan = (guncel_fiyat / gecmis_veri['Close'].iloc[0]) ** (1/12)
-        t1, t12 = guncel_fiyat * (aylik_carpan ** 1), guncel_fiyat * (aylik_carpan ** 12)
-
-        chat_id_str = str(chat_id)
-        risk_profili = kullanici_portfoy[chat_id_str]['risk_profili']
-        
-        rapor = f"📑 {hisse_kodu} BİRLEŞİK DETAYLI ANALİZ\n━━━━━━━━━━━━━━━━━━━━━━\n"
-        rapor += f"💵 GÜNCEL FİYAT: {guncel_fiyat:.2f}\n• F/K: {fk_orani:.1f} | RSI: {rsi:.1f}\n\n"
-        
-        if hisse_kodu in kullanici_portfoy[chat_id_str]['hisseler']:
-            lot = kullanici_portfoy[chat_id_str]['hisseler'][hisse_kodu]['lot']
-            maliyet = kullanici_portfoy[chat_id_str]['hisseler'][hisse_kodu]['maliyet']
-            kar = (guncel_fiyat - maliyet) * lot
-            rapor += f"💼 **CÜZDANINDA VAR:** {lot:.2f} adet. Kâr/Zararın: {'🟩' if kar>0 else '🟥'} {kar:+.2f}\n\n"
-
-        rapor += f"{haber_ve_duygu_analizi(ticker, hisse_kodu)}\n\n"
-        rapor += f"🧠 STRATEJİ VE AÇIKLAMALAR:\n\n"
-        
-        if tercih['vade'] in ['kisa', 'ikisi']: 
-            rapor += f"⏱️ KISA VADE (RSI: {rsi:.1f}): {'Alım Fırsatı' if rsi <= 35 else ('Riskli/Şişmiş' if rsi >= 65 else 'Nötr')}\n"
-        if tercih['vade'] in ['uzun', 'ikisi']:
-            rapor += f"📅 UZUN VADE YÖN (SMA): {'Trend Yukarı' if sma_50_son > sma_200_son else 'Trend Aşağı'}\n"
-            rapor += f"📅 UZUN VADE DEĞER (F/K: {fk_orani:.1f}): {'Ucuz/İskontolu' if 0 < fk_orani <= 10 else ('Pahalı/Primli' if fk_orani > 25 else 'Adil Fiyat')}\n\n"
-            
-        rapor += f"🔮 GELECEK TAHMİNLERİ:\n• 1 Ay Sonra: {t1:.2f}\n• 12 Ay Sonra: {t12:.2f}\n\n"
-
-        if tercih['butce']:
-            b = tercih['butce']
-            rapor += f"💰 {b} İLE BÜTÇE PROJEKSİYONU:\n• {b/guncel_fiyat:.2f} adet alınabilir.\n• 1 Ay: {b*(aylik_carpan**1):.2f} | 12 Ay: {b*(aylik_carpan**12):.2f}"
-            
-        bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
-    except Exception as e:
-        bot.send_message(chat_id, f"❌ Hata oluştu. (Detay: {str(e)})", reply_markup=ana_menu_olustur())
-
 def final_rapor_duello(chat_id):
     bot.send_message(chat_id, "⚖️ İki varlık ringe çıkarılıyor, Groq AI düello senaryosu oluşturuluyor...")
     try:
@@ -815,17 +841,7 @@ def final_rapor_duello(chat_id):
         v1, v2 = t1.history(period="1y"), t2.history(period="1y")
 
         if v1.empty or v2.empty or len(v1) < 5 or len(v2) < 5:
-            hatali_kod = h1 if (v1.empty or len(v1) < 5) else h2
-            oneriler = hisse_onerisi_bul(hatali_kod)
-            if oneriler:
-                oneri_metni = "\n".join(f"• {o}" for o in oneriler)
-                bot.send_message(
-                    chat_id,
-                    f"⚠️ '{hatali_kod}' bulunamadı. Bunlardan birini mi demek istedin?\n\n{oneri_metni}",
-                    reply_markup=ana_menu_olustur(),
-                )
-            else:
-                bot.send_message(chat_id, "⚠️ Yahoo Finance API varlıklardan birinin verisini anlık olarak boş döndürdü. Lütfen kodu kontrol edip birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
+            bot.send_message(chat_id, f"⚠️ Veri alınamadı.", reply_markup=ana_menu_olustur())
             return
             
         f1, f2 = t1.fast_info['last_price'], t2.fast_info['last_price']
@@ -862,11 +878,10 @@ def final_rapor_duello(chat_id):
                     model=GROQ_MODEL, temperature=0.3
                 )
                 ai_duello_yorum = res.choices[0].message.content.strip()
-            except Exception:
-                pass
+            except: pass
         
         chat_id_str = str(chat_id)
-        cuzdan = kullanici_portfoy[chat_id_str]['hisseler']
+        cuzdan = kullanici_portfoy[chat_id_str].get('hisseler', {})
         cuzdan_metni = ""
         if h1 in cuzdan: cuzdan_metni += f"• **{h1}** cüzdanında mevcut.\n"
         if h2 in cuzdan: cuzdan_metni += f"• **{h2}** cüzdanında mevcut.\n"
@@ -898,21 +913,7 @@ def final_rapor_duello(chat_id):
             
         bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
     except Exception as e:
-        bot.send_message(chat_id, f"❌ Düello yapılırken hata oluştu. (Detay: {str(e)})", reply_markup=ana_menu_olustur())
-
-# =========================================================================
-# 🔴 KURUMSAL TASARIMLI VE AI DESTEKLİ PDF RAPORU SİSTEMİ 🔴
-# =========================================================================
-def tr_to_eng(metin):
-    metin = str(metin)
-    degisimler = {
-        "ğ": "g", "ş": "s", "ı": "i", "ç": "c", "ö": "o", "ü": "u",
-        "Ğ": "G", "Ş": "S", "İ": "I", "Ç": "C", "Ö": "O", "Ü": "U",
-        "₺": "TL", "—": "-", "–": "-", "’": "'", "‘": "'", "“": '"', "”": '"', "…": "..."
-    }
-    for eski, yeni in degisimler.items():
-        metin = metin.replace(eski, yeni)
-    return metin.encode('latin-1', 'replace').decode('latin-1')
+        bot.send_message(chat_id, f"❌ Düello yapılırken hata oluştu: {str(e)}", reply_markup=ana_menu_olustur())
 
 class PDF(FPDF):
     def header(self):
@@ -936,33 +937,35 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
     pdf_dosya = f"Kurumsal_Finans_Raporu_{chat_id}.pdf"
     try:
         chat_id_str = str(chat_id)
-        cuzdan = kullanici_portfoy[chat_id_str]['hisseler']
-        
+        cuzdan = kullanici_portfoy[chat_id_str].get('hisseler', {})
         odak_hisse = list(cuzdan.keys())[0] if cuzdan else "XU100.IS"
         veri = yf.Ticker(odak_hisse).history(period="6mo")
         
         if veri.empty or len(veri) < 5:
-            bot.send_message(chat_id, "⚠️ Grafik çizimi için yeterli veri alınamadı. Lütfen birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
+            bot.send_message(chat_id, "⚠️ Grafik çizimi için yeterli veri alınamadı.", reply_markup=ana_menu_olustur())
             return
             
-        try:
-            plt.figure(figsize=(9, 3.8))
-            plt.plot(veri.index, veri['Close'], color='#1f77b4', linewidth=2, label='Fiyat')
-            plt.plot(veri.index, veri['Close'].rolling(window=50).mean(), color='#ff7f0e', linestyle='--', label='50 Gun SMA')
-            plt.title(f"{odak_hisse} Fiyat Hareketleri ve Trend Analizi")
-            plt.legend()
-            plt.grid(True, alpha=0.3)
-            plt.savefig(grafik_dosya, bbox_inches='tight')
-        finally:
-            plt.close()
+        with grafik_kilidi:
+            try:
+                plt.figure(figsize=(9, 3.8))
+                plt.plot(veri.index, veri['Close'], color='#1f77b4', linewidth=2, label='Fiyat')
+                plt.plot(veri.index, veri['Close'].rolling(window=50).mean(), color='#ff7f0e', linestyle='--', label='50 Gun SMA')
+                plt.title(f"{odak_hisse} Fiyat Hareketleri ve Trend Analizi")
+                plt.legend()
+                plt.grid(True, alpha=0.3)
+                plt.savefig(grafik_dosya, bbox_inches='tight')
+            except: pass
+            finally: plt.close('all')
 
-        usd = yf.Ticker("TRY=X").fast_info['last_price']
-        gold = yf.Ticker("GC=F").fast_info['last_price']
-        btc = yf.Ticker("BTC-USD").fast_info['last_price']
+        try: usd = yf.Ticker("TRY=X").fast_info['last_price']
+        except: usd = 34.0
+        try: gold = yf.Ticker("GC=F").fast_info['last_price']
+        except: gold = 0.0
+        try: btc = yf.Ticker("BTC-USD").fast_info['last_price']
+        except: btc = 0.0
 
         pdf = PDF()
         pdf.add_page()
-        
         pdf.set_font("Arial", 'B', 12)
         pdf.set_fill_color(230, 235, 245)
         pdf.set_text_color(24, 43, 73)
@@ -986,7 +989,7 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         pdf.set_text_color(50, 50, 50)
         pdf.ln(2)
         
-        pdf.cell(0, 6, txt=f"Guncel Risk Profiliniz: {tr_to_eng(kullanici_portfoy[chat_id_str]['risk_profili']).upper()}", ln=True)
+        pdf.cell(0, 6, txt=f"Guncel Risk Profiliniz: {tr_to_eng(kullanici_portfoy[chat_id_str].get('risk_profili', 'DENGELI')).upper()}", ln=True)
         pdf.ln(1)
 
         if not cuzdan:
@@ -998,18 +1001,21 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
                 try:
                     g_fiyat = yf.Ticker(h).fast_info['last_price']
                     kar = (g_fiyat - v['maliyet']) * v['lot']
-                    top_yat += v['maliyet'] * v['lot']
-                    top_gun += g_fiyat * v['lot']
+                    is_usd = not h.endswith(".IS")
+                    carpan = usd if is_usd else 1.0
+                    
+                    top_yat += (v['maliyet'] * v['lot'] * carpan)
+                    top_gun += (g_fiyat * v['lot'] * carpan)
+                    
                     durum = "KAR" if kar > 0 else "ZARAR"
                     satir = f"-> Varlik: {h} | Adet: {v['lot']} | Maliyet: {v['maliyet']:.2f} | Guncel: {g_fiyat:.2f} | Durum: {kar:+.2f} ({durum})"
                     pdf.cell(0, 6, txt=tr_to_eng(satir), ln=True)
-                except Exception as e:
-                    print(f"⚠️ PDF varlık satırı hatası: {e}")
+                except: pass
             
             pdf.ln(2)
             fark = top_gun - top_yat
             genel = "POZITIF" if fark > 0 else "NEGATIF"
-            ozet_metin = f"TOPLAM YATIRIM: {top_yat:.2f} TL   |   GUNCEL DEGER: {top_gun:.2f} TL\nNET DURUM: {fark:+.2f} TL ({genel})"
+            ozet_metin = f"TOPLAM YATIRIM (TL Cinsi): {top_yat:,.2f} TL   |   GUNCEL DEGER: {top_gun:,.2f} TL\nNET DURUM: {fark:+,.2f} TL ({genel})"
             pdf.set_font("Arial", 'B', 10)
             pdf.multi_cell(0, 6, txt=tr_to_eng(ozet_metin))
             pdf.set_font("Arial", size=10)
@@ -1038,7 +1044,7 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
                 f"Matematiksel CAGR modeline gore 12 aylik fiyat projeksiyonu {fiyat_12_ay:.2f} seviyesindedir."
             )
             pdf.multi_cell(0, 6, txt=tr_to_eng(teknik_metin))
-        except Exception as e:
+        except:
             pdf.cell(0, 6, txt="Teknik veriler su an saglanamiyor.", ln=True)
 
         pdf.ln(2)
@@ -1053,10 +1059,8 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
     finally:
         for dosya in (grafik_dosya, pdf_dosya):
             if os.path.exists(dosya):
-                try:
-                    os.remove(dosya)
-                except Exception as e:
-                    print(f"⚠️ Geçici dosya silinemedi ({dosya}): {e}")
+                try: os.remove(dosya)
+                except: pass
 
 # =========================================================================
 # 🔴 AKILLI ALARM VE HABER SİSTEMİ (2 SAATTE BİR) 🔴
@@ -1077,8 +1081,7 @@ def otomatik_sabah_bulteni():
         )
         for chat_id in kullanici_portfoy.keys():
             bot.send_message(int(chat_id), mesaj)
-    except Exception as e:
-        print(f"⚠️ Sabah bülteni gönderilemedi: {e}")
+    except: pass
 
 def otomatik_alarm_kontrolu():
     global gonderilen_haberler
@@ -1108,8 +1111,7 @@ def otomatik_alarm_kontrolu():
                 
                 if baslik and haber_id and haber_id not in gonderilen_haberler:
                     gonderilen_haberler.add(haber_id)
-                    if len(gonderilen_haberler) > 1000:
-                        gonderilen_haberler.clear()
+                    if len(gonderilen_haberler) > 1000: gonderilen_haberler.clear()
                         
                     if groq_client:
                         prompt = f"Hisse: {hisse}\nHaber: {baslik}\nBu haber hissenin fiyatını sert etkileyecek (bilanço, ihale, iflas vb.) KRİTİK bir gelişme mi? Yorum yapmadan sadece 'EVET' veya 'HAYIR' yaz."
@@ -1121,12 +1123,10 @@ def otomatik_alarm_kontrolu():
                             cevap = res.choices[0].message.content.strip().upper()
                             if "EVET" in cevap:
                                 kritik_haber = baslik
-                        except Exception as e:
-                            print(f"⚠️ Groq haber analizi hatası: {e}")
+                        except: pass
                             
             hisse_verileri[hisse] = {'fiyat': fiyat, 'haber': kritik_haber}
-        except Exception as e:
-            print(f"⚠️ {hisse} alarm kontrolünde hata: {e}")
+        except: pass
             
     for chat_id_str, portfoy in kullanici_portfoy.items():
         chat_id = int(chat_id_str)
@@ -1134,13 +1134,20 @@ def otomatik_alarm_kontrolu():
         degisiklik_oldu_mu = False
         
         for hisse, veriler in cuzdan.items():
-            if hisse not in hisse_verileri:
-                continue
+            if hisse not in hisse_verileri: continue
                 
             guncel_fiyat = hisse_verileri[hisse]['fiyat']
             maliyet = veriler['maliyet']
             referans_fiyat = veriler.get('son_alarm_fiyati', maliyet)
+            stop_loss = veriler.get('stop_loss', 0)
             
+            if stop_loss > 0 and guncel_fiyat <= stop_loss:
+                try:
+                    bot.send_message(chat_id, f"🚨 **ACİL STOP-LOSS (ZARAR KES) TETİKLENDİ!** 🚨\nKoruma altına aldığın **{hisse}** fiyatı **{stop_loss}** seviyesinin altına inerek {guncel_fiyat:.2f} oldu!")
+                    kullanici_portfoy[chat_id_str]['hisseler'][hisse]['stop_loss'] = 0
+                    degisiklik_oldu_mu = True
+                except: pass
+
             anlik_degisim_yuzdesi = ((guncel_fiyat - referans_fiyat) / referans_fiyat) * 100
             toplam_degisim_yuzdesi = ((guncel_fiyat - maliyet) / maliyet) * 100
             
@@ -1177,6 +1184,32 @@ def arka_plan_zamanlayicisi():
 threading.Thread(target=arka_plan_zamanlayicisi, daemon=True).start()
 
 # =========================================================================
+# 🔴 SERBEST AI SOHBET MODU 🔴
+# =========================================================================
+@bot.message_handler(func=lambda message: True)
+def serbest_soru_cevap(message):
+    chat_id = message.chat.id
+    soru = message.text
+    
+    bot.send_message(chat_id, "⏳ Piyasalar analiz ediliyor, lütfen bekle...")
+    
+    if groq_client:
+        try:
+            res = groq_client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": "Sen kıdemli, esprili ve zeki bir Türk finans analisti ve portföy yöneticisisin. Kullanıcının sorularına sadece Türkçe, piyasa dinamikleriyle açıklayan, akıcı, net ve çok uzun olmayan bir yanıt ver. Paragrafları ayırarak oku."},
+                    {"role": "user", "content": soru}
+                ],
+                model=GROQ_MODEL, temperature=0.5
+            )
+            cevap = res.choices[0].message.content.strip()
+            bot.send_message(chat_id, f"🧠 **AI ANALİST:**\n\n{cevap}", parse_mode="Markdown")
+        except Exception as e:
+            bot.send_message(chat_id, "⚠️ Yapay zeka şu an yoğun, birazdan tekrar dene.")
+    else:
+        bot.send_message(chat_id, "⚠️ Yapay zeka bağlantısı kurulamadı.")
+
+# =========================================================================
 # 🔴 WEBHOOK SİSTEMİ VE FLASK SUNUCUSU 🔴
 # =========================================================================
 app = Flask(__name__)
@@ -1186,7 +1219,7 @@ WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 @app.route('/', methods=['GET', 'HEAD'])
 def ping():
-    return "Finans Botu 7/24 Webhook ve AI Destekli Gelişmiş Finans Terminali ile Çalışıyor!"
+    return "Finans Botu V30.1 7/24 Webhook ve AI Destekli Gelişmiş Finans Terminali ile Çalışıyor!"
 
 @app.route(WEBHOOK_PATH, methods=['POST'])
 def webhook():
