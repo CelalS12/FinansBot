@@ -29,7 +29,7 @@ if not TOKEN:
     )
 
 bot = telebot.TeleBot(TOKEN)
-print("V27.3 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
+print("V27.4 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
 
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
@@ -179,7 +179,7 @@ def buton_tepkisi(call):
                 f"- Ons Altın: {gold_fiyat:.2f} USD\n"
                 f"- Bitcoin: {btc_fiyat:,.2f} USD\n"
                 f"- ABD S&P500: {sp500_fiyat:,.2f}\n\n"
-                f"Bu verileri kullanarak piyasanın genel yönünü ekonomik ve profesyonel bir dille 2 cümleyle özetle. Kesinlikle Türkçe yaz."
+                f"Bu verileri kullanarak piyasanın genel yönünü ekonomik bir dille 2 cümleyle özetle."
             )
             
             ai_makro_yorum = "Küresel piyasalar dengeli seyrediyor."
@@ -591,18 +591,19 @@ def final_rapor_duello(chat_id):
         kisa_kazanan = h1 if rsi1 < rsi2 else h2
         uzun_kazanan = h1 if (0 < fk1 < fk2) else h2
 
+        # 🔴 KESİN VE MATEMATİKSEL UYUMLU DÜELLO PROMPTU
         duello_prompt = (
-            f"Hisse 1: {h1} (RSI: {rsi1:.1f}, F/K: {fk1:.1f})\n"
-            f"Hisse 2: {h2} (RSI: {rsi2:.1f}, F/K: {fk2:.1f})\n\n"
-            f"Bu iki hisse arasında hangisinin kısa ve uzun vadede daha avantajlı olduğunu kesinlikle Türkçe olarak 2 cümleyle özetle."
+            f"Kısa vade teknik göstergelere (RSI) göre kazanan: {kisa_kazanan}\n"
+            f"Uzun vade temel verilere (F/K) göre kazanan: {uzun_kazanan}\n\n"
+            f"Bu sonuçları ASLA değiştirmeden, fon yöneticisi edasıyla 2 cümlelik profesyonel bir Türkçe analiz yaz."
         )
         
-        ai_duello_yorum = "İki varlık da farklı risk profillerine hitap ediyor."
+        ai_duello_yorum = f"Kısa vadede {kisa_kazanan}, uzun vadede ise {uzun_kazanan} öne çıkmaktadır."
         if groq_client:
             try:
                 res = groq_client.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": "Sen kıdemli bir Türk borsa uzmanısın. Yalnızca akıcı Türkçe ile cevap vermelisin."},
+                        {"role": "system", "content": "Sen kıdemli bir Türk borsa uzmanısın. Yalnızca akıcı ve net Türkçe ile cevap vermelisin."},
                         {"role": "user", "content": duello_prompt}
                     ],
                     model=GROQ_MODEL, temperature=0.3
