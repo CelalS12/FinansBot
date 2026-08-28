@@ -13,19 +13,20 @@ import io
 import os
 import json
 from flask import Flask, request
-import google.generativeai as genai # YENİ: Yapay Zeka Kütüphanesi
+from groq import Groq # YENİ: Hız canavarı Groq kütüphanesi!
 
 TOKEN = "8879272393:AAFCssyv0IFIIHwRuMA6Dm2VIiiGUS_bym0"
-# 🔴 YAPAY ZEKA API ANAHTARINI BURAYA YAZ 🔴
-# Şifreyi kodun içine yazmıyoruz, sunucunun (Render) hafızasından gizlice çekiyoruz:
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+# Şifreyi Render'ın kilitli kasasından çekiyoruz:
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 bot = telebot.TeleBot(TOKEN)
-print("V24 YAPAY ZEKA DESTEKLİ OTONOM TERMİNAL: Sistem başlatılıyor...")
+print("V25 GROQ (LLAMA 3) DESTEKLİ OTONOM TERMİNAL: Sistem başlatılıyor...")
 
-# Yapay Zeka Ayarları
-genai.configure(api_key=GEMINI_API_KEY)
-ai_model = genai.GenerativeModel('gemini-1.5-flash')
+if GROQ_API_KEY:
+    groq_client = Groq(api_key=GROQ_API_KEY)
+else:
+    groq_client = None
 
 # =========================================================================
 # 🔴 JSON VERİTABANI SİSTEMİ 🔴
@@ -219,34 +220,47 @@ def kod_formatla(kod, piyasa):
     return kod.upper().strip() + ".IS" if piyasa == "tr" else kod.upper().strip()
 
 # =========================================================================
-# 🔴 YENİ: GERÇEK YAPAY ZEKA DESTEKLİ HABER OKUYUCU (RAG SİSTEMİ) 🔴
+# 🔴 YENİ: GROQ (LLAMA 3) DESTEKLİ RAG SİSTEMİ 🔴
 # =========================================================================
 def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
     try:
+        if not groq_client:
+            return "🗞️ *YAPAY ZEKA ANALİZİ:* Lütfen Render ortam değişkenlerine GROQ_API_KEY ekleyin."
+
         haberler = ticker_obj.news
         if not haberler: 
             return "🗞️ *YAPAY ZEKA ANALİZİ:* Şirketle ilgili güncel bir haber akışı bulunamadığı için yorum yapılamadı."
         
         haber_basliklari = ""
-        for h in haberler[:5]: # Son 5 haberi al
+        for h in haberler[:5]: 
             haber_basliklari += f"- {h.get('title', '')}\n"
             
-        # Yapay Zekaya (Gemini'ye) göndereceğimiz Promt (Emir)
         prompt = (
             f"Sen Wall Street'te çalışan profesyonel bir fon yöneticisisin. "
-            f"Aşağıda {hisse_kodu} hissesine ait en güncel haber başlıkları var:\n\n"
+            f"Aşağıda {hisse_kodu} varlığına ait en güncel haber başlıkları var:\n\n"
             f"{haber_basliklari}\n\n"
-            f"Lütfen bu haberlerin şirketin hisse değerini ve geleceğini nasıl etkileyebileceğini "
-            f"3 kısa ve anlaşılır cümleyle Türkçe olarak yorumla. Başına emoji koy."
+            f"Lütfen bu haberlerin varlık değerini ve geleceğini nasıl etkileyebileceğini "
+            f"kısa, profesyonel ve net bir şekilde 3 cümleyle tamamen Türkçe olarak yorumla. Başına emoji koy."
         )
         
-        # Yapay Zekayı tetikle
-        if GEMINI_API_KEY == "BURAYA_YAPAY_ZEKA_ANAHTARINI_YAPISTIR":
-            return "🗞️ *YAPAY ZEKA ANALİZİ:* Lütfen kodun başındaki GEMINI_API_KEY kısmına geçerli bir anahtar girin."
-            
-        ai_cevap = ai_model.generate_content(prompt)
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Sen kıdemli bir finansal analistsin. Sadece Türkçe dilinde cevap vermelisin."
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model="llama3-8b-8192", # Açık kaynaklı hız canavarı model
+            temperature=0.5,
+        )
         
-        rapor = f"🧠 **YAPAY ZEKA HABER ÖZETİ VE YORUMU** 🧠\n\n*{ai_cevap.text.strip()}*\n\n"
+        ai_cevap = chat_completion.choices[0].message.content
+        
+        rapor = f"🧠 **GROQ AI HABER ÖZETİ VE YORUMU** 🧠\n\n*{ai_cevap.strip()}*\n\n"
         rapor += "*İncelenen Son Başlıklar:*\n" + haber_basliklari
         return rapor
         
@@ -399,7 +413,6 @@ def final_rapor_analiz(chat_id):
             kar = (guncel_fiyat - maliyet) * lot
             rapor += f"💼 **CÜZDANINDA VAR:** {lot:.2f} adet. Kâr/Zararın: {'🟩' if kar>0 else '🟥'} {kar:+.2f}\n\n"
 
-        # YENİ: Yapay Zeka Analizi Çağrısı
         rapor += f"{haber_ve_duygu_analizi(ticker, hisse_kodu)}\n\n"
         
         rapor += f"🧠 STRATEJİ VE AÇIKLAMALAR:\n\n"
@@ -678,7 +691,7 @@ WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 @app.route('/', methods=['GET', 'HEAD'])
 def ping():
-    return "Finans Botu 7/24 Webhook ve Yapay Zeka ile Profesyonel Olarak Çalışıyor!"
+    return "Finans Botu 7/24 Webhook ve Açık Kaynaklı Groq (Llama 3) Zekası ile Çalışıyor!"
 
 @app.route(WEBHOOK_PATH, methods=['POST'])
 def webhook():
