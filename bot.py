@@ -14,7 +14,7 @@ import os
 import json
 from flask import Flask # YENİ: Bulut sunucusunu kandırmak için eklendi
 
-TOKEN = "8879272393:AAFafTpTlRnu8gS51qvl2KTBuoNh2NEvGv8"
+TOKEN = "8879272393:AAFCssyv0IFIIHwRuMA6Dm2VIiiGUS_bym0"
 bot = telebot.TeleBot(TOKEN)
 print("V22 CLOUD (BULUT) UYUMLU OTONOM TERMİNAL: Sistem devrede...")
 
