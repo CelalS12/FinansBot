@@ -5,3 +5,4 @@ schedule
 matplotlib
 fpdf
 flask
+google-generativeai
