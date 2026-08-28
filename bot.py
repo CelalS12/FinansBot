@@ -29,7 +29,7 @@ if not TOKEN:
     )
 
 bot = telebot.TeleBot(TOKEN, num_threads=20)
-print("V30.2 GROQ AI STABİL & HIZLI TERMİNAL: Sistem başlatılıyor...")
+print("V31.0 BIST 100 + US 50 + CRYPTO 30 RADAR MOTORU: Sistem başlatılıyor...")
 
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
@@ -37,6 +37,36 @@ else:
     groq_client = None
 
 GROQ_MODEL = "openai/gpt-oss-20b"
+
+# =========================================================================
+# 🔴 180 DEV VARLIK HAVUZU (BIST 100 + ABD 50 + KRIPTO 30) 🔴
+# =========================================================================
+HAVUZ_BIST_100 = [
+    "THYAO.IS", "BIMAS.IS", "TUPRS.IS", "FROTO.IS", "KCHOL.IS", "AKBNK.IS", "YKBNK.IS", "ASELS.IS", "SISE.IS", "SAHOL.IS",
+    "PGSUS.IS", "CCOLA.IS", "MGROS.IS", "ENKAI.IS", "EREGL.IS", "ASTOR.IS", "KONTR.IS", "ISCTR.IS", "GARAN.IS", "VAKBN.IS",
+    "HALKB.IS", "TCELL.IS", "TTKOM.IS", "PETKM.IS", "KOZAL.IS", "KOZAA.IS", "IPEKE.IS", "TOASO.IS", "ARCLK.IS", "ALARK.IS",
+    "HEKTS.IS", "SASA.IS", "GUBRF.IS", "EKGYO.IS", "OYAKC.IS", "SMRTG.IS", "ENJSA.IS", "KRDMD.IS", "CIMSA.IS", "DOHOL.IS",
+    "TAVHL.IS", "TKFEN.IS", "SOKM.IS", "AGHOL.IS", "BUCIM.IS", "BRISA.IS", "OTKAR.IS", "DOAS.IS", "KORDS.IS", "ULKER.IS",
+    "MAVI.IS", "VESBE.IS", "VESTL.IS", "MPARK.IS", "TSKB.IS", "ANSGR.IS", "AKSA.IS", "AKFGY.IS", "ECILC.IS", "EUPWR.IS",
+    "ALFAS.IS", "CWENE.IS", "CANTE.IS", "ODAS.IS", "ZOREN.IS", "BIOEN.IS", "GESAN.IS", "YEOTK.IS", "QUAGR.IS", "ISGYO.IS",
+    "TRGYO.IS", "KLGYO.IS", "KZBGY.IS", "SNGYO.IS", "ALGYO.IS", "PSGYO.IS", "SKBNK.IS", "TUKAS.IS", "KONYA.IS", "EGEEN.IS",
+    "BFREN.IS", "BRYAT.IS", "TMSN.IS", "KCAER.IS", "GWIND.IS", "AEFES.IS", "ISMEN.IS", "OYAYO.IS", "GLYHO.IS", "BERA.IS",
+    "IEYHO.IS", "IHLGM.IS", "GSDHO.IS", "POLHO.IS", "CEMTS.IS", "PARSN.IS", "LOGO.IS", "ARDYZ.IS", "MIATK.IS", "SDTTR.IS"
+]
+
+HAVUZ_ABD_50 = [
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B", "LLY", "AVGO",
+    "JPM", "UNH", "V", "XOM", "MA", "JNJ", "PG", "HD", "COST", "ABBV",
+    "MRK", "NFLX", "BAC", "AMD", "CRM", "KO", "PEP", "WMT", "CVX", "TMO",
+    "LIN", "ORCL", "ACN", "MCD", "CSCO", "QCOM", "ABT", "TXN", "GE", "PM",
+    "DHR", "INTU", "WFC", "IBM", "AMAT", "CAT", "NOW", "DIS", "MS", "UBER"
+]
+
+HAVUZ_KRIPTO_30 = [
+    "BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "XRP-USD", "DOGE-USD", "ADA-USD", "TRX-USD", "AVAX-USD", "LINK-USD",
+    "SHIB-USD", "DOT-USD", "BCH-USD", "NEAR-USD", "SUI-USD", "LTC-USD", "PEPE-USD", "UNI-USD", "APT-USD", "ICP-USD",
+    "FET-USD", "XMR-USD", "XLM-USD", "RENDER-USD", "HBAR-USD", "ATOM-USD", "ARB-USD", "OP-USD", "FIL-USD", "INJ-USD"
+]
 
 # =========================================================================
 # 🔴 JSON VERİTABANI VE KİLİT SİSTEMLERİ 🔴
@@ -106,7 +136,7 @@ def yardim_komutu(message):
         "💬 Serbest Mod — Herhangi bir finansal sorunu yaz, AI anında cevaplasın!\n"
         "📊 Kapsamlı Analiz — Teknik, AI haber, fiyat projeksiyonu ve temettü bilgisi\n"
         "⚖️ Düello — İki varlığı mantıksal projeksiyonlarla karşılaştırır\n"
-        "💡 Hisse Radarı — Defansif, Dengeli ve Agresif hisse taraması\n"
+        "💡 Hisse Radarı — BIST 100, ABD 50 ve Kripto 30 tarama motoru\n"
         "📈 Grafik Analizi — Hareketli ortalamalar ve trend analizi\n"
         "💼 Cüzdanım — Kâr/zarar, Dolar/TL hesabı ve Stop-Loss takibi\n"
         "🌍 Küresel Radar — Dolar, altın, BTC ve S&P500 özeti\n"
@@ -130,30 +160,48 @@ def buton_tepkisi(call):
         pdf_rapor_olustur_ve_gonder(chat_id)
         return
 
+    # 1. RADAR PROFİL SEÇİMİ
     if veri == "islem_radar_oneri":
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton("🛡️ Defansif Portföy", callback_data="oneri_risk_defansif"),
                    InlineKeyboardButton("⚖️ Dengeli Portföy", callback_data="oneri_risk_dengeli"))
         markup.row(InlineKeyboardButton("⚔️ Agresif / Büyüme", callback_data="oneri_risk_agresif"))
         markup.row(InlineKeyboardButton("🏠 Ana Menü", callback_data="ana_menu"))
-        bot.send_message(chat_id, "🎯 **STRATEJİK HİSSE RADARI**\nHangi risk profiline uygun hisse taraması yapalım?", reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(chat_id, "🎯 **STRATEJİK HİSSE RADARI**\nHangi risk profiline uygun tarama yapılsın?", reply_markup=markup, parse_mode="Markdown")
         return
 
+    # 2. RADAR VADE SEÇİMİ
     elif veri.startswith("oneri_risk_"):
         secilen_risk = veri.split("_")[2]
-        kullanici_durumu[chat_id] = {'oneri_risk': secilen_risk}
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton("⏱️ Kısa Vade (1-3 Ay)", callback_data=f"oneri_vade_{secilen_risk}_kisa"),
                    InlineKeyboardButton("📅 Uzun Vade (6-12 Ay+)", callback_data=f"oneri_vade_{secilen_risk}_uzun"))
         markup.row(InlineKeyboardButton("🏠 Ana Menü", callback_data="ana_menu"))
-        bot.send_message(chat_id, f"Seçilen Profil: **{secilen_risk.upper()}**\nHangi vade için tarama yapılsın?", reply_markup=markup, parse_mode="Markdown")
+        bot.send_message(chat_id, f"Seçilen Profil: **{secilen_risk.upper()}**\nVade tercihin nedir?", reply_markup=markup, parse_mode="Markdown")
         return
 
+    # 3. RADAR PİYASA SEÇİMİ (BIST 100 / ABD 50 / KRİPTO 30)
     elif veri.startswith("oneri_vade_"):
         parcalar = veri.split("_")
         risk_tipi = parcalar[2]
         vade_tipi = parcalar[3]
-        threading.Thread(target=hisse_tarama_ve_oneri_uret, args=(chat_id, risk_tipi, vade_tipi)).start()
+        
+        markup = InlineKeyboardMarkup()
+        markup.row(InlineKeyboardButton("🇹🇷 BIST 100 (100 Hisse)", callback_data=f"oneri_run_{risk_tipi}_{vade_tipi}_bist"),
+                   InlineKeyboardButton("🇺🇸 ABD Top 50 (50 Dev)", callback_data=f"oneri_run_{risk_tipi}_{vade_tipi}_us"))
+        markup.row(InlineKeyboardButton("🪙 Kripto Top 30 (30 Coin)", callback_data=f"oneri_run_{risk_tipi}_{vade_tipi}_crypto"),
+                   InlineKeyboardButton("🌐 Global Karma (Tümü)", callback_data=f"oneri_run_{risk_tipi}_{vade_tipi}_all"))
+        markup.row(InlineKeyboardButton("🏠 Ana Menü", callback_data="ana_menu"))
+        bot.send_message(chat_id, f"🎯 **Hangi Piyasa Taranacak?**\n(Profil: {risk_tipi.upper()} | Vade: {vade_tipi.upper()})", reply_markup=markup, parse_mode="Markdown")
+        return
+
+    # 4. RADAR ÇALIŞTIRMA
+    elif veri.startswith("oneri_run_"):
+        parcalar = veri.split("_")
+        risk_tipi = parcalar[2]
+        vade_tipi = parcalar[3]
+        piyasa_secimi = parcalar[4]
+        threading.Thread(target=hisse_tarama_ve_oneri_uret, args=(chat_id, risk_tipi, vade_tipi, piyasa_secimi)).start()
         return
 
     if veri in ["islem_analiz", "islem_duello", "islem_grafik", "portfoy_ekle"]:
@@ -265,7 +313,7 @@ def kuresel_radar_islet(chat_id):
                               {"role": "user", "content": makro_prompt}],
                     model=GROQ_MODEL, temperature=0.3
                 )
-                ai_makro_yorum = res.choices[0].message.content.strip()
+                ai_makro_yorum = res.choices[0].message.content.strip().replace("*", "")
             except: pass
 
         rapor = (
@@ -347,52 +395,62 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
         return f"🗞️ *YAPAY ZEKA ANALİZİ:* Yapay zeka modülü cevap veremiyor. ({str(e)})"
 
 # =========================================================================
-# 🔴 HIZLI & GÜVENLİ STRATEJİK HİSSE RADARI (HİÇBİR ZAMAN KİLİTLENMEZ) 🔴
+# 🔴 HIZLI & GÜVENLİ STRATEJİK HİSSE RADARI (180 VARLIK HAVUZU) 🔴
 # =========================================================================
-def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
-    bot.send_message(chat_id, f"🔍 **{risk_tipi.upper()}** profil ve **{vade_tipi.upper()}** vade için piyasalar taranıyor...")
-    
-    # Hızlı ve stabil tarama için en likit 10 dev hisse
-    aday_havuzu = [
-        "THYAO.IS", "BIMAS.IS", "TUPRS.IS", "FROTO.IS", "KCHOL.IS",
-        "ASELS.IS", "PGSUS.IS", "AKBNK.IS", "NVDA", "AAPL"
-    ]
+def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi, piyasa_secimi):
+    if piyasa_secimi == "bist":
+        secili_havuz = HAVUZ_BIST_100
+        havuz_adi = "🇹🇷 BIST 100"
+    elif piyasa_secimi == "us":
+        secili_havuz = HAVUZ_ABD_50
+        havuz_adi = "🇺🇸 ABD Top 50"
+    elif piyasa_secimi == "crypto":
+        secili_havuz = HAVUZ_KRIPTO_30
+        havuz_adi = "🪙 Kripto Top 30"
+    else:
+        secili_havuz = HAVUZ_BIST_100[:25] + HAVUZ_ABD_50[:15] + HAVUZ_KRIPTO_30[:10]
+        havuz_adi = "🌐 Global Karma"
+
+    bot.send_message(chat_id, f"🔍 **{havuz_adi}** taranıyor... ({risk_tipi.upper()} - {vade_tipi.upper()})\nLütfen bekleyin, grafikler çiziliyor...")
     
     sonuclar = []
     gecmis_veriler = {}
     
     try:
-        for sembol in aday_havuzu:
+        # Toplu indirme ile maksimum hız
+        veri_bulk = yf.download(secili_havuz, period="3mo", threads=True, progress=False)
+        df_close = veri_bulk['Close'] if 'Close' in veri_bulk else veri_bulk
+        
+        for sembol in secili_havuz:
             try:
-                t = yf.Ticker(sembol)
-                df = t.history(period="3mo")
-                if df.empty or len(df) < 15:
-                    continue
+                if sembol not in df_close.columns: continue
+                s_close = df_close[sembol].dropna()
+                if len(s_close) < 15: continue
                     
-                fiyat = float(df['Close'].iloc[-1])
-                sma20 = float(df['Close'].rolling(20).mean().iloc[-1])
-                sma50 = float(df['Close'].rolling(min(len(df), 50)).mean().iloc[-1])
+                fiyat = float(s_close.iloc[-1])
+                sma20 = float(s_close.rolling(20).mean().iloc[-1])
+                sma50 = float(s_close.rolling(min(len(s_close), 50)).mean().iloc[-1])
                 
-                diff = df['Close'].diff()
+                diff = s_close.diff()
                 gain = diff.clip(lower=0).rolling(14).mean().iloc[-1]
                 loss = (-1 * diff.clip(upper=0)).rolling(14).mean().iloc[-1]
                 rsi = 50.0 if loss == 0 else float(100 - (100 / (1 + (gain / loss))))
                 
-                aylik_oran = (fiyat / float(df['Close'].iloc[0])) ** (1/3)
+                aylik_oran = (fiyat / float(s_close.iloc[0])) ** (1/3)
                 projeksiyon = fiyat * (aylik_oran ** 12)
                 
                 puan = 50
                 if risk_tipi == "defansif":
                     if fiyat > sma50: puan += 20
                     if 35 <= rsi <= 55: puan += 25
-                    if sembol in ["BIMAS.IS", "TUPRS.IS", "FROTO.IS", "AAPL"]: puan += 15
+                    if sembol in ["BIMAS.IS", "TUPRS.IS", "FROTO.IS", "AAPL", "BTC-USD", "KO", "PG", "SISE.IS"]: puan += 15
                 elif risk_tipi == "dengeli":
                     if sma20 > sma50: puan += 20
                     if 45 <= rsi <= 62: puan += 20
                     if projeksiyon > fiyat: puan += 15
                 elif risk_tipi == "agresif":
                     if rsi > 55 or rsi < 35: puan += 20
-                    if sembol in ["NVDA", "PGSUS.IS"]: puan += 20
+                    if sembol in ["NVDA", "PGSUS.IS", "SOL-USD", "ASTOR.IS", "TSLA"]: puan += 20
                     if sma20 > sma50: puan += 15
 
                 trend = "Yukarı 🟢" if fiyat > sma20 else "Dirençte 🟡"
@@ -401,30 +459,28 @@ def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
                     'sma20': sma20, 'sma50': sma50, 'trend': trend,
                     'puan': puan, 'projeksiyon': projeksiyon
                 })
-                gecmis_veriler[sembol] = df['Close']
-            except Exception as e:
-                continue
+                gecmis_veriler[sembol] = s_close
+            except: continue
 
         sonuclar.sort(key=lambda x: x['puan'], reverse=True)
-        secilenler = sonuclar[:6]
+        secilenler = sonuclar[:8] # En yüksek puanlı 8 hisse/coin
         
         if not secilenler:
-            bot.send_message(chat_id, "⚠️ Piyasa verilerine şu anda ulaşılamadı. Lütfen tekrar deneyin.", reply_markup=ana_menu_olustur())
+            bot.send_message(chat_id, "⚠️ Piyasa verilerine ulaşılamadı. Tekrar deneyin.", reply_markup=ana_menu_olustur())
             return
 
         grafik_dosya = f"radar_grafik_{chat_id}.png"
         
-        # Güvenli grafik oluşturma
         with grafik_kilidi:
             try:
                 plt.figure(figsize=(9, 4.5))
-                for item in secilenler[:3]:
+                for item in secilenler[:4]:
                     s = item['sembol']
                     s_series = gecmis_veriler[s]
                     norm = (s_series / s_series.iloc[0] - 1) * 100
                     plt.plot(s_series.index, norm, label=s, linewidth=2)
                     
-                plt.title(f"{risk_tipi.upper()} Profil - Öne Çıkan Hisselerin 3 Aylık Değişimi (%)")
+                plt.title(f"{havuz_adi} - Öne Çıkanların 3 Aylık Göreceli Değişimi (%)")
                 plt.xlabel("Tarih")
                 plt.ylabel("Değişim (%)")
                 plt.legend()
@@ -439,15 +495,16 @@ def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
         hisse_listesi_metni = ""
         ai_detay_metni = ""
         for idx, item in enumerate(secilenler, 1):
+            para = "$" if ("-USD" in item['sembol'] or not "." in item['sembol']) else "₺"
             hisse_listesi_metni += (
-                f"{idx}. {item['sembol']} — Fiyat: {item['fiyat']:.2f}\n"
-                f"• RSI: {item['rsi']:.1f} | Trend: {item['trend']} | 12A Hedef: {item['projeksiyon']:.2f}\n\n"
+                f"{idx}. {item['sembol']} — Fiyat: {item['fiyat']:.2f}{para}\n"
+                f"• RSI: {item['rsi']:.1f} | Trend: {item['trend']} | 12A Hedef: {item['projeksiyon']:.2f}{para}\n\n"
             )
             if idx <= 3:
                 ai_detay_metni += f"- {item['sembol']}: Fiyat={item['fiyat']:.2f}, RSI={item['rsi']:.1f}\n"
                 
         ai_prompt = (
-            f"Kullanıcı {risk_tipi.upper()} profil ve {vade_tipi.upper()} vade için hisse tavsiyesi istiyor.\n"
+            f"Kullanıcı {havuz_adi} piyasasında {risk_tipi.upper()} profil ve {vade_tipi.upper()} vade için tarama yaptı.\n"
             f"Algoritma sonucu öne çıkanlar:\n{ai_detay_metni}\n"
             f"Bu verilere dayanarak en gerçekçi, net piyasa stratejisini 2 cümleyle tamamen Türkçe olarak yaz. Özel karakterler ve yıldız işareti kullanma."
         )
@@ -464,11 +521,11 @@ def hisse_tarama_ve_oneri_uret(chat_id, risk_tipi, vade_tipi):
             except: pass
 
         mesaj = (
-            f"🎯 STRATEJİK HİSSE VE GRAFİK RADARI 🎯\n"
+            f"🎯 {havuz_adi.upper()} STRATEJİK RADAR SONUÇLARI 🎯\n"
             f"📌 Profil: {risk_tipi.upper()} | ⏱️ Vade: {vade_tipi.upper()}\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🧠 AI Strateji Notu:\n{ai_ozet}\n\n"
-            f"📊 Öne Çıkan Teknik Adaylar:\n\n{hisse_listesi_metni}"
+            f"📊 Öne Çıkan En İyi Varlıklar:\n\n{hisse_listesi_metni}"
             f"━━━━━━━━━━━━━━━━━━━━━━"
         )
         
@@ -910,17 +967,6 @@ def final_rapor_duello(chat_id):
     except Exception as e:
         bot.send_message(chat_id, f"❌ Düello yapılırken hata oluştu: {str(e)}", reply_markup=ana_menu_olustur())
 
-def tr_to_eng(metin):
-    metin = str(metin)
-    degisimler = {
-        "ğ": "g", "ş": "s", "ı": "i", "ç": "c", "ö": "o", "ü": "u",
-        "Ğ": "G", "Ş": "S", "İ": "I", "Ç": "C", "Ö": "O", "Ü": "U",
-        "₺": "TL", "—": "-", "–": "-", "’": "'", "‘": "'", "“": '"', "”": '"', "…": "..."
-    }
-    for eski, yeni in degisimler.items():
-        metin = metin.replace(eski, yeni)
-    return metin.encode('latin-1', 'replace').decode('latin-1')
-
 class PDF(FPDF):
     def header(self):
         self.set_fill_color(24, 43, 73)
@@ -1225,7 +1271,7 @@ WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 @app.route('/', methods=['GET', 'HEAD'])
 def ping():
-    return "Finans Botu V30.2 Stabil Webhook ve AI Destekli Gelişmiş Finans Terminali ile Çalışıyor!"
+    return "Finans Botu V31.0 7/24 Webhook ve AI Destekli Gelişmiş Finans Terminali ile Çalışıyor!"
 
 @app.route(WEBHOOK_PATH, methods=['POST'])
 def webhook():
