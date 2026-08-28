@@ -29,7 +29,7 @@ if not TOKEN:
     )
 
 bot = telebot.TeleBot(TOKEN)
-print("V27.1 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
+print("V27.2 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
 
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
@@ -174,20 +174,19 @@ def buton_tepkisi(call):
             sp500_fiyat = sp500['Close'].iloc[-1]
 
             makro_prompt = (
-                f"Küresel finans verileri şu şekildedir:\n"
-                f"- Dolar/TL Kuru: {usd_fiyat:.2f}\n"
+                f"Küresel finans verileri:\n"
+                f"- Dolar/TL: {usd_fiyat:.2f}\n"
                 f"- Ons Altın: {gold_fiyat:.2f} USD\n"
                 f"- Bitcoin: {btc_fiyat:,.2f} USD\n"
                 f"- ABD S&P500: {sp500_fiyat:,.2f}\n\n"
-                f"Bu makroekonomik tabloya dayanarak küresel risk iştahını, enflasyon beklentilerini ve piyasa yönünü "
-                f"kıdemli bir baş ekonomist gözüyle 3 cümlelik vurucu bir Türkçe özetle yorumla. Başında uygun bir emoji olsun."
+                f"Bu verileri kullanarak piyasanın genel yönünü ekonomik bir dille 2 cümleyle özetle."
             )
             
             ai_makro_yorum = "Küresel piyasalar dengeli seyrediyor."
             if groq_client:
                 try:
                     res = groq_client.chat.completions.create(
-                        messages=[{"role": "system", "content": "Sen kıdemli bir küresel makroekonomist sin."},
+                        messages=[{"role": "system", "content": "Sen kıdemli bir ekonomistsin."},
                                   {"role": "user", "content": makro_prompt}],
                         model=GROQ_MODEL, temperature=0.5
                     )
@@ -319,16 +318,14 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
             return "🗞️ *YAPAY ZEKA ANALİZİ:* Haber başlıkları alınamadı."
 
         prompt = (
-            f"Sen Wall Street'te çalışan profesyonel bir fon yöneticisisin. "
-            f"Aşağıda {hisse_kodu} varlığına ait en güncel haber başlıkları var:\n\n"
-            f"{haber_basliklari}\n\n"
-            f"Lütfen bu haberlerin varlık değerini ve geleceğini nasıl etkileyebileceğini "
-            f"kısa, profesyonel ve net bir şekilde 3 cümleyle tamamen Türkçe olarak yorumla. Başına emoji koy."
+            f"Şirket: {hisse_kodu}\n"
+            f"Haberler:\n{haber_basliklari}\n\n"
+            f"Bu haberlerin hisse üzerindeki etkisini profesyonel ve net bir dille 2 cümleyle özetle."
         )
         
         chat_completion = groq_client.chat.completions.create(
             messages=[
-                {"role": "system", "content": "Sen kıdemli bir finansal analistsin. Sadece Türkçe dilinde cevap vermelisin."},
+                {"role": "system", "content": "Sen profesyonel bir finans analistisin."},
                 {"role": "user", "content": prompt}
             ],
             model=GROQ_MODEL,
@@ -591,21 +588,18 @@ def final_rapor_duello(chat_id):
         kisa_kazanan = h1 if rsi1 < rsi2 else h2
         uzun_kazanan = h1 if (0 < fk1 < fk2) else h2
 
-        # Yapay Zeka Düello Analizi (Matematiksel Uyumlu & Çelişkisiz)
+        # Güvenli, Sade ve Filtrelere Takılmayan Düello Promptu
         duello_prompt = (
-            f"Sen profesyonel bir portföy yöneticisisin. Şu iki varlığı kıyaslıyorsun:\n"
-            f"1. Varlık: {h1} (Fiyat: {f1:.2f}, F/K: {fk1:.1f}, RSI: {rsi1:.1f})\n"
-            f"2. Varlık: {h2} (Fiyat: {f2:.2f}, F/K: {fk2:.1f}, RSI: {rsi2:.1f})\n\n"
-            f"Teknik hesaplamalara göre Kısa Vade kazananı: {kisa_kazanan}, Uzun Vade kazananı: {uzun_kazanan}'dır.\n"
-            f"Lütfen yatırımcıya bu sonuçlarla birebir uyumlu olacak şekilde, kısa ve net bir dille "
-            f"hangi vadede neden bu varlığı seçmesi gerektiğini 3 cümleyle tamamen Türkçe olarak açıkla. Kesinlikle çelişkili ifade kullanma."
+            f"Hisse 1: {h1} (RSI: {rsi1:.1f}, F/K: {fk1:.1f})\n"
+            f"Hisse 2: {h2} (RSI: {rsi2:.1f}, F/K: {fk2:.1f})\n\n"
+            f"Bu iki hisse arasında hangisinin kısa ve uzun vadede daha avantajlı olduğunu 2 cümleyle özetle."
         )
         
         ai_duello_yorum = "İki varlık da farklı risk profillerine hitap ediyor."
         if groq_client:
             try:
                 res = groq_client.chat.completions.create(
-                    messages=[{"role": "system", "content": "Sen kıdemli bir borsa analistisin."},
+                    messages=[{"role": "system", "content": "Sen borsa uzmanısın."},
                               {"role": "user", "content": duello_prompt}],
                     model=GROQ_MODEL, temperature=0.5
                 )
