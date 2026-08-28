@@ -12,11 +12,20 @@ from fpdf import FPDF
 import io
 import os
 import json
-from flask import Flask, request # YENİ: Webhook için request eklendi
+from flask import Flask, request
+import google.generativeai as genai # YENİ: Yapay Zeka Kütüphanesi
 
 TOKEN = "8879272393:AAFCssyv0IFIIHwRuMA6Dm2VIiiGUS_bym0"
+# 🔴 YAPAY ZEKA API ANAHTARINI BURAYA YAZ 🔴
+# Şifreyi kodun içine yazmıyoruz, sunucunun (Render) hafızasından gizlice çekiyoruz:
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
 bot = telebot.TeleBot(TOKEN)
-print("V23 WEBHOOK (PROFESYONEL ALTYAPI) UYUMLU TERMİNAL: Sistem başlatılıyor...")
+print("V24 YAPAY ZEKA DESTEKLİ OTONOM TERMİNAL: Sistem başlatılıyor...")
+
+# Yapay Zeka Ayarları
+genai.configure(api_key=GEMINI_API_KEY)
+ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # =========================================================================
 # 🔴 JSON VERİTABANI SİSTEMİ 🔴
@@ -209,33 +218,40 @@ def buton_tepkisi(call):
 def kod_formatla(kod, piyasa):
     return kod.upper().strip() + ".IS" if piyasa == "tr" else kod.upper().strip()
 
-def haber_ve_duygu_analizi(ticker_obj):
+# =========================================================================
+# 🔴 YENİ: GERÇEK YAPAY ZEKA DESTEKLİ HABER OKUYUCU (RAG SİSTEMİ) 🔴
+# =========================================================================
+def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
     try:
         haberler = ticker_obj.news
-        if not haberler: return "🗞️ *DUYGU ANALİZİ:* Şirketle ilgili güncel haber akışı bulunamadı."
+        if not haberler: 
+            return "🗞️ *YAPAY ZEKA ANALİZİ:* Şirketle ilgili güncel bir haber akışı bulunamadığı için yorum yapılamadı."
         
-        pozitif_kelimeler = ['growth', 'profit', 'deal', 'up', 'record', 'buy', 'dividend', 'success', 'büyüme', 'kâr', 'anlaşma', 'yükseliş', 'rekor', 'başarı', 'temettü', 'artış']
-        negatif_kelimeler = ['loss', 'down', 'crisis', 'penalty', 'lawsuit', 'sell', 'miss', 'debt', 'zarar', 'düşüş', 'kriz', 'ceza', 'dava', 'borç', 'satış', 'kayıp']
-        
-        p_skor, n_skor = 0, 0
         haber_basliklari = ""
-        
-        for h in haberler[:3]:
-            baslik = h.get('title', '')
-            haber_basliklari += f"• {baslik}\n"
-            lower_baslik = baslik.lower()
-            for pk in pozitif_kelimeler:
-                if pk in lower_baslik: p_skor += 1
-            for nk in negatif_kelimeler:
-                if nk in lower_baslik: n_skor += 1
-                
-        if p_skor > n_skor: duygu, yorum = "🟢 POZİTİF (İyimserlik Hâkim)", "Son haberlerde büyüme ve başarı temaları ağırlıkta. Rüzgar arkasında."
-        elif n_skor > p_skor: duygu, yorum = "🔴 NEGATİF (Kötümserlik Hâkim)", "Son haberlerde zarar ve kriz temaları baskın. Şirketin üzerinde medya baskısı var."
-        else: duygu, yorum = "🟡 NÖTR (Durağan)", "Medyada standart işleyiş haberleri var. Yön belirleyecek bir haber yok."
+        for h in haberler[:5]: # Son 5 haberi al
+            haber_basliklari += f"- {h.get('title', '')}\n"
             
-        return f"🗞️ **YEREL HABER & DUYGU ANALİZİ**\n{duygu}\n*{yorum}*\n\n*Son Başlıklar:*\n{haber_basliklari}"
-    except:
-        return "🗞️ *DUYGU ANALİZİ:* Haber tarayıcı modül şu an çalışmıyor."
+        # Yapay Zekaya (Gemini'ye) göndereceğimiz Promt (Emir)
+        prompt = (
+            f"Sen Wall Street'te çalışan profesyonel bir fon yöneticisisin. "
+            f"Aşağıda {hisse_kodu} hissesine ait en güncel haber başlıkları var:\n\n"
+            f"{haber_basliklari}\n\n"
+            f"Lütfen bu haberlerin şirketin hisse değerini ve geleceğini nasıl etkileyebileceğini "
+            f"3 kısa ve anlaşılır cümleyle Türkçe olarak yorumla. Başına emoji koy."
+        )
+        
+        # Yapay Zekayı tetikle
+        if GEMINI_API_KEY == "BURAYA_YAPAY_ZEKA_ANAHTARINI_YAPISTIR":
+            return "🗞️ *YAPAY ZEKA ANALİZİ:* Lütfen kodun başındaki GEMINI_API_KEY kısmına geçerli bir anahtar girin."
+            
+        ai_cevap = ai_model.generate_content(prompt)
+        
+        rapor = f"🧠 **YAPAY ZEKA HABER ÖZETİ VE YORUMU** 🧠\n\n*{ai_cevap.text.strip()}*\n\n"
+        rapor += "*İncelenen Son Başlıklar:*\n" + haber_basliklari
+        return rapor
+        
+    except Exception as e:
+        return f"🗞️ *YAPAY ZEKA ANALİZİ:* Yapay zeka modülü şu an cevap veremiyor. (Detay: {str(e)})"
 
 def p_hisse_al(message):
     chat_id = message.chat.id
@@ -331,7 +347,7 @@ def vade_secimi_sun(chat_id):
     bot.send_message(chat_id, "Vade tercihiniz?", reply_markup=markup)
 
 def final_rapor_analiz(chat_id):
-    bot.send_message(chat_id, "🏛️ Analizler hesaplanıyor, haberler okunuyor ve GRAFİKLER çiziliyor...")
+    bot.send_message(chat_id, "🏛️ Analizler hesaplanıyor, haberler AI ile yorumlanıyor ve GRAFİKLER çiziliyor...")
     try:
         tercih = kullanici_durumu[chat_id]
         hisse_kodu = tercih['hisse1']
@@ -383,7 +399,9 @@ def final_rapor_analiz(chat_id):
             kar = (guncel_fiyat - maliyet) * lot
             rapor += f"💼 **CÜZDANINDA VAR:** {lot:.2f} adet. Kâr/Zararın: {'🟩' if kar>0 else '🟥'} {kar:+.2f}\n\n"
 
-        rapor += f"{haber_ve_duygu_analizi(ticker)}\n\n"
+        # YENİ: Yapay Zeka Analizi Çağrısı
+        rapor += f"{haber_ve_duygu_analizi(ticker, hisse_kodu)}\n\n"
+        
         rapor += f"🧠 STRATEJİ VE AÇIKLAMALAR:\n\n"
         
         if tercih['vade'] in ['kisa', 'ikisi']: 
@@ -650,7 +668,7 @@ def arka_plan_zamanlayicisi():
 threading.Thread(target=arka_plan_zamanlayicisi, daemon=True).start()
 
 # =========================================================================
-# 🔴 YENİ: WEBHOOK SİSTEMİ VE FLASK SUNUCUSU 🔴
+# 🔴 WEBHOOK SİSTEMİ VE FLASK SUNUCUSU 🔴
 # =========================================================================
 app = Flask(__name__)
 
@@ -660,7 +678,7 @@ WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 @app.route('/', methods=['GET', 'HEAD'])
 def ping():
-    return "Finans Botu 7/24 Webhook ile Profesyonel Olarak Çalışıyor!"
+    return "Finans Botu 7/24 Webhook ve Yapay Zeka ile Profesyonel Olarak Çalışıyor!"
 
 @app.route(WEBHOOK_PATH, methods=['POST'])
 def webhook():
@@ -672,7 +690,6 @@ def webhook():
     else:
         return "403 - Yetkisiz Erişim", 403
 
-# Mevcut webhook'u temizle ve yenisini ayarla
 bot.remove_webhook()
 time.sleep(1)
 bot.set_webhook(url=WEBHOOK_URL)
