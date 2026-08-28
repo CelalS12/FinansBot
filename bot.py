@@ -16,7 +16,7 @@ from flask import Flask, request
 from groq import Groq
 
 # =========================================================================
-# 🔴 AYARLAR (ARTIK KOD İÇİNDE YAZILI DEĞİL, ORTAM DEĞİŞKENİNDEN OKUNUYOR) 🔴
+# 🔴 AYARLAR (ORTAM DEĞİŞKENLERİNDEN OKUNUYOR) 🔴
 # =========================================================================
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
@@ -29,31 +29,30 @@ if not TOKEN:
     )
 
 bot = telebot.TeleBot(TOKEN)
-print("V26 GROQ (GPT-OSS ÜCRETSİZ) DESTEKLİ OTONOM TERMİNAL: Sistem başlatılıyor...")
+print("V26.1 GROQ (GPT-OSS ÜCRETSİZ) JSON HAFIZALI TERMİNAL: Sistem başlatılıyor...")
 
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
 else:
     groq_client = None
 
-# Groq'un ücretsiz (developer tier) modeli. llama-3.1-8b-instant ve
-# llama-3.3-70b-versatile artık sadece Enterprise planında var, bu yüzden
-# onlar yerine bunu kullanıyoruz.
 GROQ_MODEL = "openai/gpt-oss-20b"
 
 # =========================================================================
 # 🔴 JSON VERİTABANI SİSTEMİ 🔴
 # =========================================================================
 VERITABANI_DOSYASI = "cuzdan_hafizasi.json"
-veritabani_kilidi = threading.Lock()  # Aynı anda iki kullanıcı yazınca dosya bozulmasın diye
+veritabani_kilidi = threading.Lock() 
+
+kullanici_portfoy = {}
 
 if os.path.exists(VERITABANI_DOSYASI):
     with open(VERITABANI_DOSYASI, "r", encoding="utf-8") as f:
         try:
             kullanici_portfoy = json.load(f)
-            print(f"✅ Kalıcı hafıza yüklendi: {len(kullanici_portfoy)} kullanıcı bulundu.")
+            print(f"✅ JSON hafızası yüklendi: {len(kullanici_portfoy)} kullanıcı bulundu.")
         except Exception as e:
-            print(f"⚠️ Veritabanı okunamadı, boş başlatılıyor: {e}")
+            print(f"⚠️ JSON dosyası okunamadı, boş başlatılıyor: {e}")
             kullanici_portfoy = {}
 else:
     kullanici_portfoy = {}
@@ -63,7 +62,7 @@ def veritabanina_kaydet():
         with open(VERITABANI_DOSYASI, "w", encoding="utf-8") as f:
             json.dump(kullanici_portfoy, f, ensure_ascii=False, indent=4)
 
-kullanici_durumu = {}
+kullanici_durumu = {} 
 
 def cuzdan_kontrol(chat_id):
     chat_id_str = str(chat_id)
@@ -86,13 +85,34 @@ def ana_menuyu_gonder(chat_id):
     markup.row(InlineKeyboardButton("🌍 Küresel Radar", callback_data="islem_radar"),
                InlineKeyboardButton("🔔 Bülten Test", callback_data="test_bulten"))
     markup.row(InlineKeyboardButton("📄 Gün Sonu Kurumsal PDF Raporu", callback_data="pdf_rapor"))
-
+    
     bot.send_message(chat_id, "🏠 **GLOBAL FİNANS TERMİNALİ**\nHangi işlemi seçiyoruz Patron?", reply_markup=markup, parse_mode="Markdown")
 
 @bot.message_handler(func=lambda message: message.text.lower() in ['selam', 'merhaba', 'hi', 'start', '/start'])
 def baslangic(message):
-    bot.clear_step_handler_by_chat_id(message.chat.id)
+    bot.clear_step_handler_by_chat_id(message.chat.id) 
     ana_menuyu_gonder(message.chat.id)
+
+@bot.message_handler(func=lambda message: message.text.lower() in ['/help', 'yardım', 'yardim', 'help'])
+def yardim_komutu(message):
+    yardim_metni = (
+        "🤖 **FİNANS BOTU YARDIM** 🤖\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "**Komutlar:**\n"
+        "🏠 /start — Ana menüyü açar\n"
+        "❓ /help — Bu yardım mesajını gösterir\n\n"
+        "**Ana menüden yapabileceklerin:**\n"
+        "📊 Kapsamlı Analiz — Tek bir hisse/kripto için teknik analiz, AI haber yorumu ve fiyat tahmini\n"
+        "⚖️ Düello — İki varlığı yan yana karşılaştırır\n"
+        "💼 Cüzdanım — Sahip olduğun varlıkları takip eder, kâr/zarar gösterir\n"
+        "⚙️ Risk Profili — Defansif / Dengeli / Agresif seçimi\n"
+        "🌍 Küresel Radar — Dolar, altın, bitcoin ve S&P500 özeti\n"
+        "📄 PDF Raporu — Portföyünün kurumsal formatta PDF raporu\n\n"
+        "💡 **İpucu:** Hisse kodunu yazarken BIST için sadece kodu (örn. THYAO), "
+        "ABD borsası için sembolü (örn. AAPL), kripto için de USD çiftini (örn. BTC-USD) "
+        "yazman yeterli — gerisini bot otomatik tamamlıyor."
+    )
+    bot.send_message(message.chat.id, yardim_metni, parse_mode="Markdown", reply_markup=ana_menu_olustur())
 
 @bot.callback_query_handler(func=lambda call: True)
 def buton_tepkisi(call):
@@ -100,7 +120,7 @@ def buton_tepkisi(call):
     chat_id_str = str(chat_id)
     veri = call.data
     cuzdan_kontrol(chat_id)
-
+    
     if veri == "ana_menu":
         bot.clear_step_handler_by_chat_id(chat_id)
         ana_menuyu_gonder(chat_id)
@@ -111,7 +131,7 @@ def buton_tepkisi(call):
         return
 
     if veri in ["islem_analiz", "islem_duello", "portfoy_ekle"]:
-        kullanici_durumu[chat_id] = {'mod': veri.split("_")[1]}
+        kullanici_durumu[chat_id] = {'mod': veri.split("_")[1]} 
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton("🇹🇷 BIST", callback_data="piyasa_tr"),
                    InlineKeyboardButton("🇺🇸 ABD Borsası", callback_data="piyasa_us"),
@@ -124,7 +144,7 @@ def buton_tepkisi(call):
         if chat_id not in kullanici_durumu or 'mod' not in kullanici_durumu[chat_id]:
             bot.send_message(chat_id, "⚠️ Sistem yeniden başlatıldığı için önceki işleminiz silindi. Lütfen ana menüden baştan başlayın.", reply_markup=ana_menu_olustur())
             return
-
+            
         kullanici_durumu[chat_id]['piyasa'] = veri.split("_")[1]
         mod = kullanici_durumu[chat_id]['mod']
         if mod == 'analiz':
@@ -145,7 +165,7 @@ def buton_tepkisi(call):
             gold = yf.Ticker("GC=F").history(period="1mo")
             btc = yf.Ticker("BTC-USD").history(period="1mo")
             sp500 = yf.Ticker("^GSPC").history(period="1mo")
-
+            
             if usd.empty or gold.empty or btc.empty or sp500.empty:
                 bot.send_message(chat_id, "⚠️ Yahoo Finance makro verileri anlık olarak çekemedi. Lütfen birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
                 return
@@ -197,7 +217,7 @@ def buton_tepkisi(call):
                    InlineKeyboardButton("⚔️ Agresif", callback_data="risk_agresif"))
         bot.send_message(chat_id, "Nasıl bir yatırımcısın Patron?", reply_markup=markup)
         return
-
+        
     elif veri.startswith("risk_"):
         kullanici_portfoy[chat_id_str]['risk_profili'] = veri.split("_")[1]
         veritabanina_kaydet()
@@ -211,7 +231,7 @@ def buton_tepkisi(call):
         markup.row(InlineKeyboardButton("🏠 Ana Menüye Dön", callback_data="ana_menu"))
         bot.send_message(chat_id, "💼 Cüzdanına hoş geldin. Ne yapmak istersin?", reply_markup=markup)
         return
-
+        
     elif veri == "portfoy_izle":
         portfoy_raporu_ver(chat_id)
         return
@@ -235,19 +255,32 @@ def buton_tepkisi(call):
 def kod_formatla(kod, piyasa):
     return kod.upper().strip() + ".IS" if piyasa == "tr" else kod.upper().strip()
 
+def hisse_onerisi_bul(kod):
+    try:
+        arama_terimi = kod.replace(".IS", "")
+        sonuclar = yf.Search(arama_terimi, max_results=5).quotes
+        oneriler = []
+        for s in sonuclar:
+            sembol = s.get('symbol', '')
+            isim = s.get('shortname') or s.get('longname') or ''
+            if sembol and sembol != kod:
+                oneriler.append(f"{sembol}" + (f" — {isim}" if isim else ""))
+        return oneriler[:3]
+    except Exception as e:
+        print(f"⚠️ Öneri araması başarısız oldu: {e}")
+        return []
+
 def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
     try:
         if not groq_client:
             return "🗞️ *YAPAY ZEKA ANALİZİ:* Lütfen Render ortam değişkenlerine GROQ_API_KEY ekleyin."
 
         haberler = ticker_obj.news
-        if not haberler:
+        if not haberler: 
             return "🗞️ *YAPAY ZEKA ANALİZİ:* Şirketle ilgili güncel bir haber akışı bulunamadı."
-
-        # yfinance güncellemesiyle başlık artık h['title'] değil, h['content']['title']
-        # içinde geliyor. Eski formatla da uyumlu olsun diye ikisini de deniyoruz.
+        
         haber_basliklari = ""
-        for h in haberler[:5]:
+        for h in haberler[:5]: 
             baslik = ""
             if isinstance(h, dict):
                 if 'content' in h and isinstance(h['content'], dict):
@@ -256,9 +289,9 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
                     baslik = h.get('title', '')
             if baslik:
                 haber_basliklari += f"- {baslik}\n"
-
+            
         if not haber_basliklari:
-            return "🗞️ *YAPAY ZEKA ANALİZİ:* Haber başlıkları alınamadı (veri formatı beklenmedik)."
+            return "🗞️ *YAPAY ZEKA ANALİZİ:* Haber başlıkları alınamadı."
 
         prompt = (
             f"Sen Wall Street'te çalışan profesyonel bir fon yöneticisisin. "
@@ -267,7 +300,7 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
             f"Lütfen bu haberlerin varlık değerini ve geleceğini nasıl etkileyebileceğini "
             f"kısa, profesyonel ve net bir şekilde 3 cümleyle tamamen Türkçe olarak yorumla. Başına emoji koy."
         )
-
+        
         chat_completion = groq_client.chat.completions.create(
             messages=[
                 {
@@ -282,16 +315,38 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
             model=GROQ_MODEL,
             temperature=0.5,
         )
-
+        
         ai_cevap = chat_completion.choices[0].message.content
         return f"🧠 **GROQ AI HABER ÖZETİ VE YORUMU** 🧠\n\n*{ai_cevap.strip()}*\n\n*İncelenen Son Başlıklar:*\n{haber_basliklari}"
-
+        
     except Exception as e:
         return f"🗞️ *YAPAY ZEKA ANALİZİ:* Yapay zeka modülü şu an cevap veremiyor. (Detay: {str(e)})"
 
 def p_hisse_al(message):
     chat_id = message.chat.id
-    kullanici_durumu[chat_id]['p_hisse'] = kod_formatla(message.text, kullanici_durumu[chat_id]['piyasa'])
+    hisse_kodu = kod_formatla(message.text, kullanici_durumu[chat_id]['piyasa'])
+
+    try:
+        gecmis = yf.Ticker(hisse_kodu).history(period="5d")
+        gecerli = not gecmis.empty
+    except Exception:
+        gecerli = False
+
+    if not gecerli:
+        oneriler = hisse_onerisi_bul(hisse_kodu)
+        if oneriler:
+            oneri_metni = "\n".join(f"• {o}" for o in oneriler)
+            msg = bot.send_message(
+                chat_id,
+                f"⚠️ '{hisse_kodu}' bulunamadı. Bunlardan birini mi demek istedin?\n\n{oneri_metni}\n\n"
+                f"Doğru kodu yazar mısın?",
+            )
+        else:
+            msg = bot.send_message(chat_id, f"⚠️ '{hisse_kodu}' bulunamadı. Kodu kontrol edip tekrar yazar mısın?")
+        bot.register_next_step_handler(msg, p_hisse_al)
+        return
+
+    kullanici_durumu[chat_id]['p_hisse'] = hisse_kodu
     msg = bot.send_message(chat_id, f"Maliyetin nedir? (Örn: 245.50):")
     bot.register_next_step_handler(msg, p_maliyet_al)
 
@@ -312,10 +367,10 @@ def p_lot_al(message):
         lot = float(message.text)
         hisse = kullanici_durumu[chat_id]['p_hisse']
         maliyet = kullanici_durumu[chat_id]['p_maliyet']
-
+        
         kullanici_portfoy[chat_id_str]['hisseler'][hisse] = {'maliyet': maliyet, 'lot': lot}
         veritabanina_kaydet()
-
+        
         bot.send_message(chat_id, f"✅ {hisse} kalıcı hafızaya eklendi! Sunucu kapansa bile silinmeyecek.", reply_markup=ana_menu_olustur())
     except Exception:
         msg = bot.send_message(chat_id, "Sayı girmelisin. Kaç adet aldın?")
@@ -330,7 +385,7 @@ def portfoy_raporu_ver(chat_id):
     bot.send_message(chat_id, "🔄 Veriler çekiliyor...")
     toplam_yatirim, toplam_guncel_deger = 0, 0
     rapor = "💼 KİŞİSEL PORTFÖYÜN\n━━━━━━━━━━━━━━━━━━━━━━\n"
-
+    
     for hisse, veriler in cuzdan.items():
         try:
             guncel_fiyat = yf.Ticker(hisse).fast_info['last_price']
@@ -345,7 +400,7 @@ def portfoy_raporu_ver(chat_id):
                       f"• Durum: {ikon} {kar_zarar:+.2f} (%{yuzde:+.1f})\n\n")
         except Exception as e:
             print(f"⚠️ {hisse} için veri çekilemedi: {e}")
-
+            
     fark = toplam_guncel_deger - toplam_yatirim
     genel_yuzde = (fark / toplam_yatirim) * 100 if toplam_yatirim > 0 else 0
     rapor += (f"━━━━━━━━━━━━━━━━━━━━━━\n💵 Toplam Maliyet: {toplam_yatirim:.2f}\n💰 Güncel Bakiye: {toplam_guncel_deger:.2f}\n"
@@ -392,18 +447,28 @@ def final_rapor_analiz(chat_id):
         gecmis_veri = ticker.history(period="1y")
 
         if gecmis_veri.empty or len(gecmis_veri) < 5:
-            bot.send_message(chat_id, f"⚠️ Yahoo Finance API anlık olarak {hisse_kodu} verisini boş döndürdü. Lütfen kodu kontrol edip birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
+            oneriler = hisse_onerisi_bul(hisse_kodu)
+            if oneriler:
+                oneri_metni = "\n".join(f"• {o}" for o in oneriler)
+                bot.send_message(
+                    chat_id,
+                    f"⚠️ '{hisse_kodu}' bulunamadı. Bunlardan birini mi demek istedin?\n\n{oneri_metni}\n\n"
+                    f"Doğru kodu öğrenip ana menüden tekrar dener misin?",
+                    reply_markup=ana_menu_olustur(),
+                )
+            else:
+                bot.send_message(chat_id, f"⚠️ Yahoo Finance API anlık olarak {hisse_kodu} verisini boş döndürdü. Lütfen kodu kontrol edip birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
             return
 
         info = ticker.info
         guncel_fiyat = gecmis_veri['Close'].iloc[-1]
         fk_orani = info.get('trailingPE', 0) or 0
-
+        
         sma_50 = gecmis_veri['Close'].rolling(window=50).mean()
         sma_200 = gecmis_veri['Close'].rolling(window=200).mean()
         sma_50_son = sma_50.iloc[-1] if len(sma_50.dropna()) > 0 else 0
         sma_200_son = sma_200.iloc[-1] if len(sma_200.dropna()) > 0 else 0
-
+        
         try:
             plt.figure(figsize=(10, 5))
             plt.plot(gecmis_veri.index, gecmis_veri['Close'], label='Kapanis Fiyati', color='#1f77b4', linewidth=2)
@@ -428,10 +493,10 @@ def final_rapor_analiz(chat_id):
 
         chat_id_str = str(chat_id)
         risk_profili = kullanici_portfoy[chat_id_str]['risk_profili']
-
+        
         rapor = f"📑 {hisse_kodu} BİRLEŞİK DETAYLI ANALİZ\n━━━━━━━━━━━━━━━━━━━━━━\n"
         rapor += f"💵 GÜNCEL FİYAT: {guncel_fiyat:.2f}\n• F/K: {fk_orani:.1f} | RSI: {rsi:.1f}\n\n"
-
+        
         if hisse_kodu in kullanici_portfoy[chat_id_str]['hisseler']:
             lot = kullanici_portfoy[chat_id_str]['hisseler'][hisse_kodu]['lot']
             maliyet = kullanici_portfoy[chat_id_str]['hisseler'][hisse_kodu]['maliyet']
@@ -440,19 +505,19 @@ def final_rapor_analiz(chat_id):
 
         rapor += f"{haber_ve_duygu_analizi(ticker, hisse_kodu)}\n\n"
         rapor += f"🧠 STRATEJİ VE AÇIKLAMALAR:\n\n"
-
-        if tercih['vade'] in ['kisa', 'ikisi']:
+        
+        if tercih['vade'] in ['kisa', 'ikisi']: 
             rapor += f"⏱️ KISA VADE (RSI: {rsi:.1f}): {'Alım Fırsatı' if rsi <= 35 else ('Riskli/Şişmiş' if rsi >= 65 else 'Nötr')}\n"
         if tercih['vade'] in ['uzun', 'ikisi']:
             rapor += f"📅 UZUN VADE YÖN (SMA): {'Trend Yukarı' if sma_50_son > sma_200_son else 'Trend Aşağı'}\n"
             rapor += f"📅 UZUN VADE DEĞER (F/K: {fk_orani:.1f}): {'Ucuz/İskontolu' if 0 < fk_orani <= 10 else ('Pahalı/Primli' if fk_orani > 25 else 'Adil Fiyat')}\n\n"
-
+            
         rapor += f"🔮 GELECEK TAHMİNLERİ:\n• 1 Ay Sonra: {t1:.2f}\n• 12 Ay Sonra: {t12:.2f}\n\n"
 
         if tercih['butce']:
             b = tercih['butce']
             rapor += f"💰 {b} İLE BÜTÇE PROJEKSİYONU:\n• {b/guncel_fiyat:.2f} adet alınabilir.\n• 1 Ay: {b*(aylik_carpan**1):.2f} | 12 Ay: {b*(aylik_carpan**12):.2f}"
-
+            
         bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
     except Exception as e:
         bot.send_message(chat_id, f"❌ Hata oluştu. (Detay: {str(e)})", reply_markup=ana_menu_olustur())
@@ -463,16 +528,26 @@ def final_rapor_duello(chat_id):
         tercih = kullanici_durumu[chat_id]
         h1, h2 = tercih['hisse1'], tercih['hisse2']
         t1, t2 = yf.Ticker(h1), yf.Ticker(h2)
-
+        
         v1, v2 = t1.history(period="1y"), t2.history(period="1y")
 
         if v1.empty or v2.empty or len(v1) < 5 or len(v2) < 5:
-            bot.send_message(chat_id, "⚠️ Yahoo Finance API varlıklardan birinin verisini anlık olarak boş döndürdü. Lütfen kodu kontrol edip birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
+            hatali_kod = h1 if (v1.empty or len(v1) < 5) else h2
+            oneriler = hisse_onerisi_bul(hatali_kod)
+            if oneriler:
+                oneri_metni = "\n".join(f"• {o}" for o in oneriler)
+                bot.send_message(
+                    chat_id,
+                    f"⚠️ '{hatali_kod}' bulunamadı. Bunlardan birini mi demek istedin?\n\n{oneri_metni}",
+                    reply_markup=ana_menu_olustur(),
+                )
+            else:
+                bot.send_message(chat_id, "⚠️ Yahoo Finance API varlıklardan birinin verisini anlık olarak boş döndürdü. Lütfen kodu kontrol edip birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
             return
-
+            
         f1, f2 = t1.fast_info['last_price'], t2.fast_info['last_price']
         fk1, fk2 = t1.info.get('trailingPE', 0) or 0, t2.info.get('trailingPE', 0) or 0
-
+        
         rs1 = v1['Close'].diff().clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * v1['Close'].diff().clip(upper=0)).ewm(com=13, adjust=False).mean()
         rsi1 = (100 - (100 / (1 + rs1))).iloc[-1]
         rs2 = v2['Close'].diff().clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * v2['Close'].diff().clip(upper=0)).ewm(com=13, adjust=False).mean()
@@ -486,7 +561,7 @@ def final_rapor_duello(chat_id):
 
         kisa_kazanan = h1 if rsi1 < rsi2 else h2
         uzun_kazanan = h1 if (0 < fk1 < fk2) else h2
-
+        
         chat_id_str = str(chat_id)
         cuzdan = kullanici_portfoy[chat_id_str]['hisseler']
         cuzdan_metni = ""
@@ -495,7 +570,7 @@ def final_rapor_duello(chat_id):
 
         rapor = (f"⚖️ KAPSAMLI DÜELLO PROJEKSİYONU: {h1} vs {h2}\n━━━━━━━━━━━━━━━━━━━━━━\n")
         if cuzdan_metni: rapor += f"💼 CÜZDAN EŞLEŞMESİ:\n{cuzdan_metni}\n"
-
+            
         rapor += (
             f"⏱️ HANGİSİNİ ALMAK DAHA MANTIKLI?\n\n"
             f"• **Kısa Vade (1-3 Ay):** {kisa_kazanan} daha avantajlı. *(Çünkü RSI momentumuna göre kısa vadede daha ucuz/sakin bölgede, tepki ihtimali yüksek.)*\n\n"
@@ -516,7 +591,7 @@ def final_rapor_duello(chat_id):
                 f"🔹 **{h1} Alırsan:** {lot1:.2f} adet.\n• 1 Ay Sonra: {p1_1:.2f} | 12 Ay Sonra: {p1_12:.2f}\n\n"
                 f"🔹 **{h2} Alırsan:** {lot2:.2f} adet.\n• 1 Ay Sonra: {p2_1:.2f} | 12 Ay Sonra: {p2_12:.2f}\n"
             )
-
+            
         bot.send_message(chat_id, rapor, reply_markup=ana_menu_olustur())
     except Exception as e:
         bot.send_message(chat_id, f"❌ Düello yapılırken hata oluştu. (Detay: {str(e)})", reply_markup=ana_menu_olustur())
@@ -546,21 +621,19 @@ class PDF(FPDF):
 
 def pdf_rapor_olustur_ve_gonder(chat_id):
     bot.send_message(chat_id, "📄 Kurumsal PDF Raporu hazırlanıyor. Lütfen bekleyin...")
-    # Dosya adlarına chat_id eklendi ki aynı anda birden fazla kullanıcı
-    # rapor isterse dosyalar birbirine karışmasın / üzerine yazılmasın.
     grafik_dosya = f"rapor_grafik_{chat_id}.png"
     pdf_dosya = f"Gun_Sonu_Raporu_{chat_id}.pdf"
     try:
         chat_id_str = str(chat_id)
         cuzdan = kullanici_portfoy[chat_id_str]['hisseler']
-
+        
         odak_hisse = list(cuzdan.keys())[0] if cuzdan else "XU100.IS"
         veri = yf.Ticker(odak_hisse).history(period="6mo")
-
+        
         if veri.empty or len(veri) < 5:
             bot.send_message(chat_id, "⚠️ Grafik çizimi için yeterli veri alınamadı. Lütfen birazdan tekrar deneyin.", reply_markup=ana_menu_olustur())
             return
-
+            
         try:
             plt.figure(figsize=(9, 4))
             plt.plot(veri.index, veri['Close'], color='#2ca02c', linewidth=2, label='Fiyat')
@@ -574,7 +647,7 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
 
         pdf = PDF()
         pdf.add_page()
-
+        
         pdf.set_font("Arial", 'B', 14)
         pdf.set_fill_color(240, 240, 240)
         pdf.cell(0, 10, txt=" 1. KURESEL PIYASA VE MAKRO GORUNUM", ln=True, fill=True)
@@ -585,7 +658,7 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         usd = yf.Ticker("TRY=X").fast_info['last_price']
         gold = yf.Ticker("GC=F").fast_info['last_price']
         btc = yf.Ticker("BTC-USD").fast_info['last_price']
-
+        
         makro_metin = (
             f"Kuresel piyasalarda Dolar/TL kuru {usd:.2f} TL seviyelerinde islem gormektedir. "
             f"Guvenli liman olan Ons Altin {gold:.2f} USD fiyatlanmasiyla kuresel enflasyon ve risk algisi hakkinda ipuclari verirken, "
@@ -599,7 +672,7 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         pdf.cell(0, 10, txt=" 2. PORTFOY VE RISK ANALIZI", ln=True, fill=True)
         pdf.set_font("Arial", size=11)
         pdf.ln(3)
-
+        
         pdf.cell(0, 8, txt=f"Guncel Risk Profiliniz: {tr_to_eng(kullanici_portfoy[chat_id_str]['risk_profili']).upper()}", ln=True)
         pdf.ln(2)
 
@@ -619,7 +692,7 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
                     pdf.cell(0, 8, txt=tr_to_eng(satir), ln=True)
                 except Exception as e:
                     print(f"⚠️ PDF için {h} verisi alınamadı: {e}")
-
+            
             pdf.ln(3)
             fark = top_gun - top_yat
             genel = "POZITIF" if fark > 0 else "NEGATIF"
@@ -637,10 +710,10 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         try:
             odak_info = yf.Ticker(odak_hisse).info
             fk = odak_info.get('trailingPE', 0) or 0
-
+            
             rs = veri['Close'].diff().clip(lower=0).ewm(com=13, adjust=False).mean() / (-1 * veri['Close'].diff().clip(upper=0)).ewm(com=13, adjust=False).mean()
             rsi = (100 - (100 / (1 + rs))).iloc[-1]
-
+            
             aylik_carpan = (veri['Close'].iloc[-1] / veri['Close'].iloc[0]) ** (1/6)
             fiyat_12_ay = veri['Close'].iloc[-1] * (aylik_carpan ** 12)
 
@@ -656,15 +729,14 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
 
         pdf.ln(5)
         pdf.image(grafik_dosya, x=15, w=180)
-
+        
         pdf.output(pdf_dosya)
         with open(pdf_dosya, "rb") as f:
             bot.send_document(chat_id, f, caption="Belgeniz hazır! İşte profesyonel gün sonu raporunuz 📄", reply_markup=ana_menu_olustur())
-
+            
     except Exception as e:
         bot.send_message(chat_id, f"❌ PDF oluşturulurken hata: {str(e)}", reply_markup=ana_menu_olustur())
     finally:
-        # Geçici dosyalar hata olsa bile temizlensin
         for dosya in (grafik_dosya, pdf_dosya):
             if os.path.exists(dosya):
                 try:
@@ -680,7 +752,7 @@ def otomatik_sabah_bulteni():
     try:
         usd = yf.Ticker("TRY=X").fast_info['last_price']
         btc = yf.Ticker("BTC-USD").fast_info['last_price']
-
+        
         mesaj = (
             f"🌅 **GÜNAYDIN PATRON! İŞTE SABAH BÜLTENİ** 🌅\n"
             f"Piyasalar açılıyor. Güne başlarken küresel durum:\n"
@@ -697,13 +769,13 @@ def otomatik_alarm_kontrolu():
     for chat_id, portfoy in kullanici_portfoy.items():
         cuzdan = portfoy['hisseler']
         if not cuzdan: continue
-
+            
         for hisse, veriler in cuzdan.items():
             try:
                 guncel_fiyat = yf.Ticker(hisse).fast_info['last_price']
                 maliyet = veriler['maliyet']
                 degisim_yuzdesi = ((guncel_fiyat - maliyet) / maliyet) * 100
-
+                
                 if degisim_yuzdesi >= 5.0:
                     bot.send_message(int(chat_id), f"🚨 **FIRSAT ALARMI!** 🚨\nCüzdanındaki **{hisse}** yükselişe geçti!\n• Maliyetin: {maliyet}\n• Anlık Fiyat: {guncel_fiyat:.2f} (+%{degisim_yuzdesi:.2f})")
                 elif degisim_yuzdesi <= -5.0:
