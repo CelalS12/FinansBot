@@ -15,7 +15,7 @@ import json
 from flask import Flask, request
 from groq import Groq # YENİ: Hız canavarı Groq kütüphanesi!
 
-TOKEN = "8879272393:AAFCssyv0IFIIHwRuMA6Dm2VIiiGUS_bym0"
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
 # Şifreyi Render'ın kilitli kasasından çekiyoruz:
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
