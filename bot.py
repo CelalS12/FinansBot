@@ -254,7 +254,7 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
                     "content": prompt,
                 }
             ],
-            model="llama3-8b-8192", # Açık kaynaklı hız canavarı model
+            model="llama-3.1-8b-instant", # Yeni nesil Llama 3.1 modeli
             temperature=0.5,
         )
         
