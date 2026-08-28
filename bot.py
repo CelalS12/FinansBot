@@ -244,9 +244,21 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
         if not haberler:
             return "🗞️ *YAPAY ZEKA ANALİZİ:* Şirketle ilgili güncel bir haber akışı bulunamadı."
 
+        # yfinance güncellemesiyle başlık artık h['title'] değil, h['content']['title']
+        # içinde geliyor. Eski formatla da uyumlu olsun diye ikisini de deniyoruz.
         haber_basliklari = ""
         for h in haberler[:5]:
-            haber_basliklari += f"- {h.get('title', '')}\n"
+            baslik = ""
+            if isinstance(h, dict):
+                if 'content' in h and isinstance(h['content'], dict):
+                    baslik = h['content'].get('title', '')
+                if not baslik:
+                    baslik = h.get('title', '')
+            if baslik:
+                haber_basliklari += f"- {baslik}\n"
+
+        if not haber_basliklari:
+            return "🗞️ *YAPAY ZEKA ANALİZİ:* Haber başlıkları alınamadı (veri formatı beklenmedik)."
 
         prompt = (
             f"Sen Wall Street'te çalışan profesyonel bir fon yöneticisisin. "
