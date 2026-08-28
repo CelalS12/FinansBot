@@ -254,7 +254,7 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
                     "content": prompt,
                 }
             ],
-            model="llama-3.1-8b-instant", # Yeni nesil Llama 3.1 modeli
+            model="llama3-8b", # Yeni nesil Llama 3.1 modeli
             temperature=0.5,
         )
         
