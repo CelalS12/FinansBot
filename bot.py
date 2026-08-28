@@ -29,7 +29,7 @@ if not TOKEN:
     )
 
 bot = telebot.TeleBot(TOKEN)
-print("V27.4 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
+print("V28.0 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
 
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
@@ -80,11 +80,12 @@ def ana_menuyu_gonder(chat_id):
     markup = InlineKeyboardMarkup()
     markup.row(InlineKeyboardButton("📊 Kapsamlı Analiz", callback_data="islem_analiz"),
                InlineKeyboardButton("⚖️ Düello (Kıyas)", callback_data="islem_duello"))
-    markup.row(InlineKeyboardButton("💼 Cüzdanım (Portföy)", callback_data="islem_portfoy"),
-               InlineKeyboardButton("⚙️ Risk Profili", callback_data="islem_risk"))
-    markup.row(InlineKeyboardButton("🌍 Küresel Radar", callback_data="islem_radar"),
-               InlineKeyboardButton("🔔 Bülten Test", callback_data="test_bulten"))
-    markup.row(InlineKeyboardButton("📄 Gün Sonu Kurumsal PDF Raporu", callback_data="pdf_rapor"))
+    markup.row(InlineKeyboardButton("📈 Grafik & Trend Analizi", callback_data="islem_grafik"),
+               InlineKeyboardButton("💼 Cüzdanım (Portföy)", callback_data="islem_portfoy"))
+    markup.row(InlineKeyboardButton("⚙️ Risk Profili", callback_data="islem_risk"),
+               InlineKeyboardButton("🌍 Küresel Radar", callback_data="islem_radar"))
+    markup.row(InlineKeyboardButton("🔔 Bülten Test", callback_data="test_bulten"),
+               InlineKeyboardButton("📄 Kurumsal PDF Raporu", callback_data="pdf_rapor"))
     
     bot.send_message(chat_id, "🏠 **GLOBAL FİNANS TERMİNALİ**\nHangi işlemi seçiyoruz Patron?", reply_markup=markup, parse_mode="Markdown")
 
@@ -102,13 +103,14 @@ def yardim_komutu(message):
         "🏠 /start — Ana menüyü açar\n"
         "❓ /help — Bu yardım mesajını gösterir\n\n"
         "**Ana menüden yapabileceklerin:**\n"
-        "📊 Kapsamlı Analiz — Tek varlık için teknik, derin AI haber yorumu ve fiyat tahmini\n"
-        "⚖️ Düello — İki varlığı AI destekli senaryolarla karşılaştırır\n"
-        "💼 Cüzdanım — Sahip olduğun varlıkları takip eder, kâr/zarar gösterir\n"
+        "📊 Kapsamlı Analiz — Teknik, derin AI haber yorumu ve fiyat tahmini\n"
+        "⚖️ Düello — İki varlığı mantıksal projeksiyonlarla karşılaştırır\n"
+        "📈 Grafik Analizi — Hareketli ortalamalar, destek/direnç ve hacim yorumu\n"
+        "💼 Cüzdanım — Varlıklarını takip eder, kâr/zarar gösterir\n"
         "⚙️ Risk Profili — Defansif / Dengeli / Agresif seçimi\n"
         "🌍 Küresel Radar — Makroekonomik veriler ve Groq AI piyasa yorumu\n"
-        "📄 PDF Raporu — AI analizleriyle zenginleştirilmiş profesyonel PDF\n\n"
-        "💡 **İpucu:** 'pegasus', 'thy' veya şirket adı gibi doğal ifadeler yazabilirsin; sistem en doğru kodu otomatik bulur!"
+        "📄 PDF Raporu — AI analizleriyle zenginleştirilmiş kurumsal rapor\n\n"
+        "💡 **İpucu:** 'pegasus', 'thy' veya şirket adı yazman yeterli — bot kodu otomatik çözer!"
     )
     bot.send_message(message.chat.id, yardim_metni, parse_mode="Markdown", reply_markup=ana_menu_olustur())
 
@@ -128,7 +130,7 @@ def buton_tepkisi(call):
         pdf_rapor_olustur_ve_gonder(chat_id)
         return
 
-    if veri in ["islem_analiz", "islem_duello", "portfoy_ekle"]:
+    if veri in ["islem_analiz", "islem_duello", "islem_grafik", "portfoy_ekle"]:
         kullanici_durumu[chat_id] = {'mod': veri.split("_")[1]} 
         markup = InlineKeyboardMarkup()
         markup.row(InlineKeyboardButton("🇹🇷 BIST", callback_data="piyasa_tr"),
@@ -151,6 +153,9 @@ def buton_tepkisi(call):
         elif mod == 'duello':
             msg = bot.send_message(chat_id, f"1. varlık adını veya kodunu yazın:")
             bot.register_next_step_handler(msg, hisse1_kaydet_duello)
+        elif mod == 'grafik':
+            msg = bot.send_message(chat_id, f"Grafik analizi yapılacak varlığın adını veya kodunu yazın:")
+            bot.register_next_step_handler(msg, grafik_analiz_calistir)
         elif mod == 'ekle':
             msg = bot.send_message(chat_id, f"Cüzdana eklenecek varlık adını veya kodunu yazın:")
             bot.register_next_step_handler(msg, p_hisse_al)
@@ -241,7 +246,7 @@ def buton_tepkisi(call):
 
     if veri in ["butce_yok", "butce_var"] or veri.startswith("vade_"):
         if chat_id not in kullanici_durumu or 'mod' not in kullanici_durumu[chat_id]:
-            bot.send_message(chat_id, "⚠️ Bot yeniden başlatıldığı için işlem hafızası silindi. Lütfen ana menüden baştan başlayın.", reply_markup=ana_menu_olustur())
+            bot.send_message(chat_id, "⚠️ Bot yeniden başlatıldığı için işlem hafızası silindi. Lütfen ana menüden tekrar başlayın.", reply_markup=ana_menu_olustur())
             return
 
         if veri == "butce_yok":
@@ -340,6 +345,92 @@ def haber_ve_duygu_analizi(ticker_obj, hisse_kodu):
         
     except Exception as e:
         return f"🗞️ *YAPAY ZEKA ANALİZİ:* Yapay zeka modülü şu an cevap veremiyor. (Detay: {str(e)})"
+
+# =========================================================================
+# 🔴 YENİ: GRAFİK & TREND ANALİZİ MODÜLÜ 🔴
+# =========================================================================
+def grafik_analiz_calistir(message):
+    chat_id = message.chat.id
+    ham_metin = message.text
+    piyasa = kullanici_durumu[chat_id].get('piyasa', 'tr')
+    hisse_kodu = akilli_kod_cozucu(ham_metin, piyasa)
+
+    bot.send_message(chat_id, f"📈 **{hisse_kodu}** için gelişmiş teknik grafik ve hareketli ortalamalar çiziliyor...")
+    try:
+        ticker = yf.Ticker(hisse_kodu)
+        df = ticker.history(period="6mo")
+        
+        if df.empty or len(df) < 10:
+            bot.send_message(chat_id, f"⚠️ '{hisse_kodu}' için yeterli grafik verisi alınamadı.", reply_markup=ana_menu_olustur())
+            return
+
+        # Teknik İndikatörler (SMA 20, SMA 50)
+        df['SMA20'] = df['Close'].rolling(window=20).mean()
+        df['SMA50'] = df['Close'].rolling(window=50).mean()
+        guncel_fiyat = df['Close'].iloc[-1]
+        sma20_son = df['SMA20'].iloc[-1]
+        sma50_son = df['SMA50'].iloc[-1]
+
+        # Grafik Çizimi
+        grafik_dosya = f"gelismis_grafik_{chat_id}.png"
+        try:
+            plt.figure(figsize=(10, 5))
+            plt.plot(df.index, df['Close'], label='Kapanis Fiyati', color='#1f77b4', linewidth=2)
+            plt.plot(df.index, df['SMA20'], label='20 Gunluk SMA (Kisa Trend)', color='#2ca02c', linestyle='--')
+            plt.plot(df.index, df['SMA50'], label='50 Gunluk SMA (Orta Trend)', color='#d62728', linestyle='--')
+            plt.title(f"{hisse_kodu} - Son 6 Aylik Teknik Trend ve Hareketli Ortalamalar")
+            plt.xlabel("Tarih")
+            plt.ylabel("Fiyat")
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plt.savefig(grafik_dosya, bbox_inches='tight')
+        finally:
+            plt.close()
+
+        # AI Destekli Grafik Yorumu
+        grafik_prompt = (
+            f"Varlık: {hisse_kodu}\n"
+            f"Güncel Fiyat: {guncel_fiyat:.2f}\n"
+            f"20 Günlük SMA: {sma20_son:.2f}\n"
+            f"50 Günlük SMA: {sma50_son:.2f}\n"
+            f"Teknik durum: Fiyat 20 günlük ortalamanın {'üzerinde' if guncel_fiyat > sma20_son else 'altında'}.\n"
+            f"Bu teknik görünüme dayanarak yatırımcıya kısa ve orta vadeli trend yönünü, olası destek/direnç mantığını "
+            f"profesyonel bir borsa analisti gibi 3 cümleyle tamamen Türkçe olarak açıkla."
+        )
+
+        ai_grafik_yorum = "Fiyat hareketli ortalamalar çevresinde denge arıyor."
+        if groq_client:
+            try:
+                res = groq_client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": "Sen kıdemli bir teknik analiz uzmanısın. Yalnızca Türkçe yazmalısın."},
+                        {"role": "user", "content": grafik_prompt}
+                    ],
+                    model=GROQ_MODEL, temperature=0.3
+                )
+                ai_grafik_yorum = res.choices[0].message.content.strip()
+            except Exception:
+                pass
+
+        rapor = (
+            f"📈 **{hisse_kodu} GELİŞMİŞ GRAFİK & TREND ANALİZİ** 📈\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💵 **Anlık Fiyat:** {guncel_fiyat:.2f}\n"
+            f"🟢 **20 Günlük SMA (Kısa Vade):** {sma20_son:.2f}\n"
+            f"🔴 **50 Günlük SMA (Orta Vade):** {sma50_son:.2f}\n\n"
+            f"🧠 **AI Teknik Grafik Yorumu:**\n*{ai_grafik_yorum}*\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        )
+
+        with open(grafik_dosya, "rb") as f:
+            bot.send_photo(chat_id, photo=f, caption=rapor, parse_mode="Markdown", reply_markup=ana_menu_olustur())
+
+    except Exception as e:
+        bot.send_message(chat_id, f"❌ Grafik analizi yapılırken hata oluştu: {str(e)}", reply_markup=ana_menu_olustur())
+    finally:
+        if os.path.exists(grafik_dosya):
+            try:
+                os.remove(grafik_dosya)
+            except:
+                pass
 
 def p_hisse_al(message):
     chat_id = message.chat.id
@@ -588,14 +679,15 @@ def final_rapor_duello(chat_id):
         h1_1, h1_12 = f1*c1, f1*(c1**12)
         h2_1, h2_12 = f2*c2, f2*(c2**12)
 
-        kisa_kazanan = h1 if rsi1 < rsi2 else h2
-        uzun_kazanan = h1 if (0 < fk1 < fk2) else h2
+        # 🔴 DÜZELTİLMİŞ GERÇEKÇİ KAZANAN BELİRLEME MANTIĞI
+        uzun_kazanan = h1 if h1_12 > h2_12 else h2
+        kisa_kazanan = h1 if abs(rsi1 - 50) < abs(rsi2 - 50) else h2
 
-        # 🔴 KESİN VE MATEMATİKSEL UYUMLU DÜELLO PROMPTU
         duello_prompt = (
-            f"Kısa vade teknik göstergelere (RSI) göre kazanan: {kisa_kazanan}\n"
-            f"Uzun vade temel verilere (F/K) göre kazanan: {uzun_kazanan}\n\n"
-            f"Bu sonuçları ASLA değiştirmeden, fon yöneticisi edasıyla 2 cümlelik profesyonel bir Türkçe analiz yaz."
+            f"Kısa vade teknik göstergelere göre kazanan: {kisa_kazanan}\n"
+            f"Uzun vade fiyat projeksiyonuna göre kazanan: {uzun_kazanan}\n"
+            f"Fiyat Projeksiyonları -> {h1} (12 Ay: {h1_12:.2f}) | {h2} (12 Ay: {h2_12:.2f})\n\n"
+            f"Bu matematiksel verileri dikkate alarak fon yöneticisi edasıyla 2 cümlelik profesyonel Türkçe bir analiz yaz."
         )
         
         ai_duello_yorum = f"Kısa vadede {kisa_kazanan}, uzun vadede ise {uzun_kazanan} öne çıkmaktadır."
@@ -624,8 +716,8 @@ def final_rapor_duello(chat_id):
         rapor += (
             f"🧠 **GROQ AI DÜELLO YORUMU:**\n*{ai_duello_yorum}*\n\n"
             f"⏱️ TEKNİK ÖZET:\n"
-            f"• **Kısa Vade (RSI):** {kisa_kazanan} avantajlı.\n"
-            f"• **Uzun Vade (F/K):** {uzun_kazanan} avantajlı.\n\n"
+            f"• **Kısa Vade:** {kisa_kazanan} avantajlı.\n"
+            f"• **Uzun Vade (Projeksiyon):** {uzun_kazanan} avantajlı.\n\n"
             f"🔮 GELECEK FİYAT TAHMİNLERİ:\n"
             f"📈 **{h1}:** 1 Ay: {h1_1:.2f} | 12 Ay: {h1_12:.2f}\n"
             f"📈 **{h2}:** 1 Ay: {h2_1:.2f} | 12 Ay: {h2_12:.2f}\n"
