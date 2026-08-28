@@ -25,7 +25,7 @@ print("V24 YAPAY ZEKA DESTEKLİ OTONOM TERMİNAL: Sistem başlatılıyor...")
 
 # Yapay Zeka Ayarları
 genai.configure(api_key=GEMINI_API_KEY)
-ai_model = genai.GenerativeModel('gemini-pro')
+ai_model = genai.GenerativeModel('gemini-1.5-flash')
 
 # =========================================================================
 # 🔴 JSON VERİTABANI SİSTEMİ 🔴
