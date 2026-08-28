@@ -12,11 +12,11 @@ from fpdf import FPDF
 import io
 import os
 import json
-from flask import Flask # YENİ: Bulut sunucusunu kandırmak için eklendi
+from flask import Flask, request # YENİ: Webhook için request eklendi
 
 TOKEN = "8879272393:AAFCssyv0IFIIHwRuMA6Dm2VIiiGUS_bym0"
 bot = telebot.TeleBot(TOKEN)
-print("V22 CLOUD (BULUT) UYUMLU OTONOM TERMİNAL: Sistem devrede...")
+print("V23 WEBHOOK (PROFESYONEL ALTYAPI) UYUMLU TERMİNAL: Sistem başlatılıyor...")
 
 # =========================================================================
 # 🔴 JSON VERİTABANI SİSTEMİ 🔴
@@ -468,7 +468,7 @@ def final_rapor_duello(chat_id):
 
 
 # =========================================================================
-# 🔴 YENİ KURUMSAL PDF RAPORU SİSTEMİ 🔴
+# 🔴 KURUMSAL PDF RAPORU SİSTEMİ 🔴
 # =========================================================================
 
 def tr_to_eng(metin):
@@ -650,19 +650,33 @@ def arka_plan_zamanlayicisi():
 threading.Thread(target=arka_plan_zamanlayicisi, daemon=True).start()
 
 # =========================================================================
-# 🔴 YENİ: BULUT (RENDER) İÇİN SAHTE WEB SUNUCUSU (HEALTH CHECK) 🔴
+# 🔴 YENİ: WEBHOOK SİSTEMİ VE FLASK SUNUCUSU 🔴
 # =========================================================================
 app = Flask(__name__)
 
-@app.route('/')
-def alive():
-    return "Finans Botu 7/24 Bulutta Çalışıyor!"
+WEBHOOK_HOST = "https://finansbot-1-kqdj.onrender.com"
+WEBHOOK_PATH = f"/{TOKEN}/"
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
-def run_web():
+@app.route('/', methods=['GET', 'HEAD'])
+def ping():
+    return "Finans Botu 7/24 Webhook ile Profesyonel Olarak Çalışıyor!"
+
+@app.route(WEBHOOK_PATH, methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return ''
+    else:
+        return "403 - Yetkisiz Erişim", 403
+
+# Mevcut webhook'u temizle ve yenisini ayarla
+bot.remove_webhook()
+time.sleep(1)
+bot.set_webhook(url=WEBHOOK_URL)
+
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
-
-# Web sunucusunu ayrı bir thread olarak başlat
-threading.Thread(target=run_web, daemon=True).start()
-
-bot.polling(none_stop=True)
