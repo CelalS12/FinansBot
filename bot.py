@@ -29,7 +29,7 @@ if not TOKEN:
     )
 
 bot = telebot.TeleBot(TOKEN)
-print("V27 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
+print("V27.1 GROQ AI DESTEKLİ GELİŞMİŞ FİNANS TERMİNALİ: Sistem başlatılıyor...")
 
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
@@ -173,7 +173,6 @@ def buton_tepkisi(call):
             btc_fiyat = btc['Close'].iloc[-1]
             sp500_fiyat = sp500['Close'].iloc[-1]
 
-            # AI Destekli Küresel Analiz Üretimi
             makro_prompt = (
                 f"Küresel finans verileri şu şekildedir:\n"
                 f"- Dolar/TL Kuru: {usd_fiyat:.2f}\n"
@@ -243,7 +242,7 @@ def buton_tepkisi(call):
 
     if veri in ["butce_yok", "butce_var"] or veri.startswith("vade_"):
         if chat_id not in kullanici_durumu or 'mod' not in kullanici_durumu[chat_id]:
-            bot.send_message(chat_id, "⚠️ Bot yeniden başlatıldığı için işlem hafızası silindi. Lütfen ana menüden tekrar başlayın.", reply_markup=ana_menu_olustur())
+            bot.send_message(chat_id, "⚠️ Bot yeniden başlatıldığı için işlem hafızası silindi. Lütfen ana menüden baştan başlayın.", reply_markup=ana_menu_olustur())
             return
 
         if veri == "butce_yok":
@@ -258,14 +257,9 @@ def buton_tepkisi(call):
             final_rapor_analiz(chat_id)
 
 def akilli_kod_cozucu(metin, piyasa):
-    """
-    Kullanıcı 'pegasus', 'thyao', 'akbank' gibi şirket isimleri veya doğal metinler
-    yazsa bile Yahoo Finance Search ile en doğru borsa sembolünü çözer.
-    """
     temiz = metin.upper().strip()
     if piyasa == "tr":
         if not temiz.endswith(".IS"):
-            # Önce doğrudan .IS ekleyip deneyelim
             aday = temiz + ".IS"
             try:
                 if not yf.Ticker(aday).history(period="3d").empty:
@@ -273,7 +267,6 @@ def akilli_kod_cozucu(metin, piyasa):
             except:
                 pass
     
-    # Yahoo Finance Search ile akıllı arama
     try:
         arama_sonuclari = yf.Search(temiz, max_results=3).quotes
         if arama_sonuclari:
@@ -598,13 +591,14 @@ def final_rapor_duello(chat_id):
         kisa_kazanan = h1 if rsi1 < rsi2 else h2
         uzun_kazanan = h1 if (0 < fk1 < fk2) else h2
 
-        # Yapay Zeka Düello Analizi Üretimi
+        # Yapay Zeka Düello Analizi (Matematiksel Uyumlu & Çelişkisiz)
         duello_prompt = (
             f"Sen profesyonel bir portföy yöneticisisin. Şu iki varlığı kıyaslıyorsun:\n"
             f"1. Varlık: {h1} (Fiyat: {f1:.2f}, F/K: {fk1:.1f}, RSI: {rsi1:.1f})\n"
             f"2. Varlık: {h2} (Fiyat: {f2:.2f}, F/K: {fk2:.1f}, RSI: {rsi2:.1f})\n\n"
-            f"Yatırımcıya kısa, net ve kararlı bir dille hangi vadede hangisini seçmesi gerektiğini "
-            f"ve temel/teknik gerekçelerini 3-4 cümleyle Türkçe olarak açıkla."
+            f"Teknik hesaplamalara göre Kısa Vade kazananı: {kisa_kazanan}, Uzun Vade kazananı: {uzun_kazanan}'dır.\n"
+            f"Lütfen yatırımcıya bu sonuçlarla birebir uyumlu olacak şekilde, kısa ve net bir dille "
+            f"hangi vadede neden bu varlığı seçmesi gerektiğini 3 cümleyle tamamen Türkçe olarak açıkla. Kesinlikle çelişkili ifade kullanma."
         )
         
         ai_duello_yorum = "İki varlık da farklı risk profillerine hitap ediyor."
@@ -664,8 +658,7 @@ def tr_to_eng(metin):
 
 class PDF(FPDF):
     def header(self):
-        # Şık Üst Banner
-        self.set_fill_color(24, 43, 73) # Koyu Lacivert
+        self.set_fill_color(24, 43, 73)
         self.rect(0, 0, 210, 22, 'F')
         self.set_font('Arial', 'B', 15)
         self.set_text_color(255, 255, 255)
@@ -705,7 +698,6 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         finally:
             plt.close()
 
-        # Makro ve Varlık için AI Analizleri Hazırlığı
         usd = yf.Ticker("TRY=X").fast_info['last_price']
         gold = yf.Ticker("GC=F").fast_info['last_price']
         btc = yf.Ticker("BTC-USD").fast_info['last_price']
@@ -713,7 +705,6 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         pdf = PDF()
         pdf.add_page()
         
-        # Bölüm 1 Başlık
         pdf.set_font("Arial", 'B', 12)
         pdf.set_fill_color(230, 235, 245)
         pdf.set_text_color(24, 43, 73)
@@ -729,7 +720,6 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         pdf.multi_cell(0, 6, txt=tr_to_eng(makro_metin))
         pdf.ln(2)
 
-        # Bölüm 2 Başlık
         pdf.set_font("Arial", 'B', 12)
         pdf.set_fill_color(230, 235, 245)
         pdf.set_text_color(24, 43, 73)
@@ -742,7 +732,7 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
         pdf.ln(1)
 
         if not cuzdan:
-            pdf.cell(0, 6, txt="Portfoyunuzde henuz kaydedilmis varlik bulunmamaktadir.", ln=True)
+            pdf.cell(0, 6, txt="Portfoyunuzde henuz kaydedilmis varlık bulunmamaktadir.", ln=True)
         else:
             top_yat = 0
             top_gun = 0
@@ -767,7 +757,6 @@ def pdf_rapor_olustur_ve_gonder(chat_id):
             pdf.set_font("Arial", size=10)
 
         pdf.ln(2)
-        # Bölüm 3 Başlık
         pdf.set_font("Arial", 'B', 12)
         pdf.set_fill_color(230, 235, 245)
         pdf.set_text_color(24, 43, 73)
