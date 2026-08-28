@@ -1,0 +1,13 @@
+pyTelegramBotAPI
+
+yfinance
+
+pandas
+
+schedule
+
+matplotlib
+
+fpdf
+
+flask
